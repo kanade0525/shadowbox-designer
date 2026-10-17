@@ -224,7 +224,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     </div>
     <section class="panel settings" aria-label="設定">
       <div class="field">
-        <div class="fhead"><label for="smooth">切り取り線のなめらかさ</label><button type="button" class="help" aria-label="説明を開く" aria-expanded="false" aria-controls="h-smooth"><svg class="ico" aria-hidden="true"><use href="#i-help"></use></svg></button><output id="smoothOut">1</output></div>
+        <div class="fhead"><label for="smooth" id="smoothLabel">切り取り線のなめらかさ</label><button type="button" class="help" aria-label="説明を開く" aria-expanded="false" aria-controls="h-smooth"><svg class="ico" aria-hidden="true"><use href="#i-help"></use></svg></button><output id="smoothOut">1</output></div>
         <input id="smooth" type="range" min="0" max="4" step="1" value="1">
 <p class="helptext" id="h-smooth" hidden>上げるほど細かい凹凸が減り、切りやすい形になります。</p>
       </div>
@@ -232,6 +232,11 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <div class="fhead"><label for="qColors">読み取りの色数</label><button type="button" class="help" aria-label="説明を開く" aria-expanded="false" aria-controls="h-qc"><svg class="ico" aria-hidden="true"><use href="#i-help"></use></svg></button><output id="qColorsOut">減色なし</output></div>
         <input id="qColors" type="range" min="0" max="40" step="4" value="0">
 <p class="helptext" id="h-qc" hidden>通常は減色なしで十分です。網点やキラ模様でパーツの区切りが細かくなりすぎる時に、16〜24色を試してください。パーツの分け方と、囲んだときの吸着の両方に効きます。</p>
+      </div>
+      <div class="field" id="pixelWrap" hidden>
+        <div class="fhead"><span>ドット絵モード</span><button type="button" class="help" aria-label="説明を開く" aria-expanded="false" aria-controls="h-pixel"><svg class="ico" aria-hidden="true"><use href="#i-help"></use></svg></button></div>
+        <label class="check"><input type="checkbox" id="pixelMode" checked><span id="pixelInfo"></span></label>
+        <p class="helptext" id="h-pixel" hidden>拡大して保存されたドット絵を見つけると、自動で入ります。ブラシが1ドット単位になり、囲んで選んだ範囲もドットの境目にそろいます。切り取り線はドットの角をそのまま残した階段状になります。切り替えても、いま決めた層の範囲は引き継がれます。</p>
       </div>
       <div class="summary">
         <p id="summary"></p>
@@ -270,7 +275,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <span class="cvbadge" id="cvBadge" data-state="loading" hidden>高精度モード（OpenCV）を準備しています…</span>
         <label class="check" id="refineWrap" hidden><input type="checkbox" id="refine" checked> 直前の囲みを補正（吸着）</label>
         <div class="field" id="brushField" hidden>
-          <label for="brush">ブラシの太さ<output id="brushOut">16</output></label>
+          <label for="brush"><span id="brushLabel">ブラシの太さ</span><output id="brushOut">16</output></label>
           <input id="brush" type="range" min="4" max="60" step="2" value="16">
         </div>
         <button id="undo" disabled><svg class="ico" aria-hidden="true"><use href="#i-undo"></use></svg>元に戻す</button>
@@ -578,7 +583,7 @@ const Algo = (() => {
     return a;
   }
   // マーチングスクエアで輪郭線をたどる
-  function traceLoops(m, W, H){
+  function traceLoops(m, W, H, blocky, cell){
     const get=(x,y)=>(x<0||y<0||x>=W||y>=H)?0:m[y*W+x];
     const PW=2*W+6, pid=(x2,y2)=>(x2+2)+(y2+2)*PW;
     const sa=[], sb=[];
@@ -617,12 +622,74 @@ const Algo = (() => {
       }
       if (pts.length<6) continue;
       let poly=[]; for (const id of pts){ const [px,py]=dec(id); poly.push(px,py); }
-      poly=rdp(poly,0.7); if (poly.length<8) continue;
-      poly=chaikin(chaikin(poly));
+      if (blocky && cell>1){
+        // マーチングスクエアは角を45°に面取りするので、ドットの境目に引き戻して階段状にする
+        const sn=v=>Math.round((v+0.5)/cell)*cell-0.5, q=[];
+        for (let i=0;i<poly.length;i+=2){
+          const X=sn(poly[i]), Y=sn(poly[i+1]);
+          if (q.length<2 || q[q.length-2]!==X || q[q.length-1]!==Y) q.push(X,Y);
+        }
+        if (q.length>=4 && q[0]===q[q.length-2] && q[1]===q[q.length-1]) q.length-=2;
+        poly=q;
+      }
+      poly=rdp(poly, blocky?0.02:0.7); if (poly.length<8) continue;
+      if (!blocky) poly=chaikin(chaikin(poly));
       if (Math.abs(polyArea(poly))<4) continue;
       loops.push(poly);
     }
     return loops;
+  }
+  // 拡大して保存されたドット絵を見つける。
+  // そういう画像は「色が変わる位置がすべて等間隔の格子の上に乗り」「各マスの中が一様」になる。
+  function detectGrid(d, W, H){
+    if (W<16 || H<16) return null;
+    const col=new Float64Array(W), row=new Float64Array(H);
+    for (let y=0;y<H;y++){ const o=y*W*4;
+      for (let x=1;x<W;x++){ const a=o+x*4, b=a-4;
+        col[x]+=Math.abs(d[a]-d[b])+Math.abs(d[a+1]-d[b+1])+Math.abs(d[a+2]-d[b+2])+Math.abs(d[a+3]-d[b+3]); } }
+    for (let y=1;y<H;y++){ const o=y*W*4, q=o-W*4;
+      for (let x=0;x<W;x++){ const a=o+x*4, b=q+x*4;
+        row[y]+=Math.abs(d[a]-d[b])+Math.abs(d[a+1]-d[b+1])+Math.abs(d[a+2]-d[b+2])+Math.abs(d[a+3]-d[b+3]); } }
+    const edges=(arr,n,span)=>{
+      let mx=0; for (let i=1;i<n;i++) if (arr[i]>mx) mx=arr[i];
+      if (mx<span*3) return null;                       // ほぼ単色の方向は手がかりにならない
+      const t=mx*0.02, e=[];
+      for (let i=1;i<n;i++) if (arr[i]>t) e.push(i);
+      return e.length>=2 ? e : null;
+    };
+    // いちばん大きい「すべての境界を説明できる間隔」を探す
+    const period=(e,n)=>{
+      if (!e) return 0;
+      const e0=e[0], lim=Math.min(128, Math.floor(n/4));
+      for (let c=lim;c>=2;c--){
+        let hit=0; for (const v of e) if ((v-e0)%c===0) hit++;
+        if (hit/e.length>=0.98) return c;
+      }
+      return 0;
+    };
+    const ce=edges(col,W,H), re=edges(row,H,W);
+    const cx=period(ce,W), cy=period(re,H);
+    const cell=(cx&&cy) ? Math.min(cx,cy) : (cx||cy);
+    if (!cell || cell<2) return null;
+    const ox=ce?ce[0]%cell:0, oy=re?re[0]%cell:0;
+    const aw=Math.floor((W-ox)/cell), ah=Math.floor((H-oy)/cell);
+    if (aw<4||ah<4||aw>512||ah>512) return null;
+    // 裏取り：マスの中の色が一様か
+    let checked=0, uniform=0;
+    const step=Math.max(1, Math.round(Math.sqrt(aw*ah/400)));
+    for (let j=0;j<ah;j+=step) for (let i=0;i<aw;i+=step){
+      const x0=ox+i*cell, y0=oy+j*cell;
+      const c0=((y0+(cell>>1))*W+x0+(cell>>1))*4;
+      let ok=true;
+      for (let y=y0;y<y0+cell && ok;y++) for (let x=x0;x<x0+cell;x++){
+        const a=(y*W+x)*4;
+        if (Math.abs(d[a]-d[c0])>16||Math.abs(d[a+1]-d[c0+1])>16||
+            Math.abs(d[a+2]-d[c0+2])>16||Math.abs(d[a+3]-d[c0+3])>16){ ok=false; break; }
+      }
+      checked++; if (ok) uniform++;
+    }
+    if (!checked || uniform/checked<0.9) return null;
+    return {cell, ox, oy, aw, ah};
   }
   function polyArea(p){ let a=0; for(let i=0;i<p.length;i+=2){const j=(i+2)%p.length; a+=p[i]*p[j+1]-p[j]*p[i+1];} return a/2; }
   function rdp(p, eps){
@@ -773,7 +840,7 @@ const Algo = (() => {
     for (let p=0;p<n;p++){ const i=id[p]; if (i>=0) list[fill[i]++]=p; }
     return {id, count:c, line, start, list, size};
   }
-  return {buildParts, toLab, bilateral, quantize, snapCrop, smoothMask, traceLoops, pieceStats, tidy};
+  return {buildParts, toLab, bilateral, quantize, snapCrop, smoothMask, traceLoops, pieceStats, tidy, detectGrid};
 })();
 // ALGO-END
 
@@ -783,7 +850,7 @@ const PAL = ['#E0402B','#F2B632','#3FA7D6','#4FB477','#A66DD4','#F27BA0','#2EC4B
 const MAXL = 10;
 const S = { src:null, srcW:0, srcH:0, W:0, H:0, lab:null,
   N:2, lcol:[], colorSeq:0, smooth:1, qK:0, pieceOnly:false, showQuant:false, prevC:null, gap:0.026, user:[], masks:[], loops:[], stats:[],
-  sel:2, tool:'parts', detail:5, showEdges:true, parts:null, edgeC:null, snap:true, limit:false, refine:true, last:null, brush:16, undo:[], dirty3d:true, dirtyGuide:true, tab:'edit' };
+  sel:2, tool:'parts', detail:5, pixel:false, grid:null, cell:1, dots:1, forcePixel:null, showEdges:true, parts:null, edgeC:null, snap:true, limit:false, refine:true, last:null, brush:16, undo:[], dirty3d:true, dirtyGuide:true, tab:'edit' };
 let DL = null;
 let canSave = ("download" in document.createElement("a"));  // 通常のブラウザならアンカーで保存できる
 function newColor(){ return PAL[(S.colorSeq++)%PAL.length]; }
@@ -823,7 +890,7 @@ function saveSession(){
     user:S.user.map(u=>u?packMask(u):null),
     set:{smooth:S.smooth, qK:S.qK, detail:S.detail, tool:S.tool, tab:S.tab, brush:S.brush,
          showEdges:S.showEdges, snap:S.snap, limit:S.limit, refine:S.refine,
-         pieceOnly:S.pieceOnly, showQuant:S.showQuant} };
+         pieceOnly:S.pieceOnly, showQuant:S.showQuant, dots:S.dots, forcePixel:S.forcePixel} };
   // 容量超過などで保存できなくても、作業そのものは続けられる
   return dbDo('readwrite', st=>st.put(rec,KEY)).catch(()=>{});
 }
@@ -842,7 +909,8 @@ function applySaved(st){
   if (!st) return;
   const num=(v,d)=>(typeof v==='number'&&isFinite(v))?v:d;
   S.smooth=num(st.smooth,S.smooth); S.qK=num(st.qK,S.qK);
-  S.detail=num(st.detail,S.detail); S.brush=num(st.brush,S.brush);
+  S.detail=num(st.detail,S.detail); S.brush=num(st.brush,S.brush); S.dots=num(st.dots,S.dots);
+  S.forcePixel=(st.forcePixel===true||st.forcePixel===false)?st.forcePixel:null;
   S.showEdges=st.showEdges!==false; S.snap=st.snap!==false; S.refine=st.refine!==false;
   S.limit=!!st.limit; S.pieceOnly=!!st.pieceOnly; S.showQuant=!!st.showQuant;
   $('#smooth').value=S.smooth; $('#smoothOut').textContent=S.smooth;
@@ -892,7 +960,7 @@ function loadFile(file){
   img.src=url;
 }
 function setBusy(b, t){ $('#busy').hidden=!b; if (t) $('#busy div').textContent=t; }
-function setSource(src, saved){
+function setSource(src, saved, keep){
   startMsg('');
   if (saved) applySaved(saved.set); else $('#restoreWrap').hidden=true;
   S.src=src; S.srcW=src.naturalWidth||src.width; S.srcH=src.naturalHeight||src.height;
@@ -900,14 +968,45 @@ function setSource(src, saved){
   setBusy(true, saved ? '前回の続きを読み込んでいます…' : '画像を読み込んでいます…');
   setTimeout(()=>{
     try{
-      const max=720, sc=Math.min(1, max/Math.max(S.srcW,S.srcH));
-      S.W=Math.max(8,Math.round(S.srcW*sc)); S.H=Math.max(8,Math.round(S.srcH*sc));
+      // 元の大きさのまま、ドット絵かどうか調べる
+      S.grid=null;
+      if (S.srcW*S.srcH<=4200000){
+        try{
+          const nc=document.createElement('canvas'); nc.width=S.srcW; nc.height=S.srcH;
+          const nx=nc.getContext('2d',{willReadFrequently:true}); nx.imageSmoothingEnabled=false;
+          nx.drawImage(S.src,0,0);
+          S.grid=Algo.detectGrid(nx.getImageData(0,0,S.srcW,S.srcH).data, S.srcW, S.srcH);
+        }catch(err){ console.error(err); }
+      }
+      S.pixel = !!S.grid && S.forcePixel!==false;
+      if (S.pixel){
+        // 1ドットを S.cell 画素の正方形として取り込む（格子がぴったり整数になる）
+        S.cell=Math.max(1, Math.min(32, Math.round(480/Math.max(S.grid.aw,S.grid.ah))));
+        S.W=S.grid.aw*S.cell; S.H=S.grid.ah*S.cell;
+      } else {
+        S.cell=1;
+        const max=720, sc=Math.min(1, max/Math.max(S.srcW,S.srcH));
+        S.W=Math.max(8,Math.round(S.srcW*sc)); S.H=Math.max(8,Math.round(S.srcH*sc));
+      }
       const c=document.createElement('canvas'); c.width=S.W; c.height=S.H;
-      const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(S.src,0,0,S.W,S.H);
+      const x=c.getContext('2d',{willReadFrequently:true});
+      x.imageSmoothingEnabled=!S.pixel;
+      if (S.pixel) x.drawImage(S.src, S.grid.ox, S.grid.oy, S.grid.aw*S.grid.cell, S.grid.ah*S.grid.cell, 0, 0, S.W, S.H);
+      else x.drawImage(S.src,0,0,S.W,S.H);
       S.rgb=x.getImageData(0,0,S.W,S.H).data;
-      S.labS=Algo.bilateral(Algo.toLab(S.rgb, S.W*S.H), S.W, S.H, 2);
+      // ドット絵は色が平らなので、ならしは不要（かけるとマスの境目が鈍る）
+      S.labS=S.pixel ? Algo.toLab(S.rgb, S.W*S.H) : Algo.bilateral(Algo.toLab(S.rgb, S.W*S.H), S.W, S.H, 2);
+      if (S.pixel && S.forcePixel===null && !saved && !keep) S.smooth=0;
       applyQuant();
       buildPartsNow();
+      if (keep && keep.N>=2){
+        S.N=keep.N; S.colorSeq=keep.colorSeq; S.lcol=keep.lcol.slice();
+        S.user=keep.user.map(u=>u?resampleMask(u,keep.W,keep.H,S.W,S.H):null);
+        S.sel=Math.min(Math.max(2,keep.sel),S.N);
+        S.undo=[]; S.last=null;
+        V.s=1; V.x=0; V.y=0; buildChips(); sizeEditor(); clampView(); updateModeUI(); rebuild(); updateLimitUI();
+        setBusy(false); return;
+      }
       const ok = !!saved && saved.W===S.W && saved.H===S.H && saved.N>=2 && saved.N<=MAXL
         && Array.isArray(saved.user) && saved.user.length===saved.N+1 && Array.isArray(saved.lcol);
       if (ok){
@@ -919,7 +1018,9 @@ function setSource(src, saved){
       }
       S.undo=[]; S.last=null;
       V.s=1; V.x=0; V.y=0; buildChips(); sizeEditor(); clampView(); rebuild(); updateLimitUI();
-      if (ok) restoreUI(saved.set); else scheduleSave();
+      updateModeUI();
+      if (ok) restoreUI(saved.set);
+      else { if (!keep && S.tab!=='edit') tabs.edit.click(); scheduleSave(); }
     }catch(e){ console.error(e); $('#edHint').textContent='画像の読み込み中にエラーが起きました（'+e.message+'）。別の画像で試してください。'; }
     setBusy(false);
   },40);
@@ -1115,7 +1216,9 @@ function computeMasks(){
   const n=S.W*S.H;
   S.masks=[null, new Uint8Array(n).fill(1)];
   for (let k=2;k<=S.N;k++){
-    const m=Algo.smoothMask(S.user[k],S.W,S.H,Math.round(S.smooth*Math.max(S.W,S.H)/600));
+    // ドット絵では「何ドットぶんならすか」になる
+    const r=S.pixel ? S.smooth*S.cell : Math.round(S.smooth*Math.max(S.W,S.H)/600);
+    const m=Algo.smoothMask(S.user[k],S.W,S.H,r);
     const lo=S.masks[k-1]; for (let p=0;p<n;p++) m[p]&=lo[p];
     S.masks[k]=m;
   }
@@ -1125,7 +1228,7 @@ function rebuild(){
   computeMasks();
   S.loops=[null,null]; S.stats=[null,{pieces:1,small:false,pct:100}];
   for (let k=2;k<=S.N;k++){
-    S.loops[k]=Algo.traceLoops(S.masks[k],S.W,S.H);
+    S.loops[k]=Algo.traceLoops(S.masks[k],S.W,S.H,S.pixel,S.cell);
     S.stats[k]=Algo.pieceStats(S.masks[k],S.W,S.H);
   }
   drawEditor();
@@ -1181,8 +1284,38 @@ $('#delLayer').addEventListener('click',()=>{
   buildChips(); rebuild();
 });
 let smoothT=0;
-bindRange('#smooth','#smoothOut',v=>{ S.smooth=v; clearTimeout(smoothT); smoothT=setTimeout(()=>{ if (S.W) rebuild(); },120); });
-bindRange('#brush','#brushOut',v=>S.brush=v);
+$('#smooth').addEventListener('input',e=>{
+  S.smooth=+e.target.value; $('#smoothOut').textContent=S.pixel?S.smooth+'ドット':S.smooth;
+  clearTimeout(smoothT); smoothT=setTimeout(()=>{ if (S.W) rebuild(); },120);
+});
+$('#brush').addEventListener('input',e=>{
+  const v=+e.target.value;
+  if (S.pixel){ S.dots=v; $('#brushOut').textContent=v+'ドット'; }
+  else { S.brush=v; $('#brushOut').textContent=v; }
+});
+// ドット絵モードの入り切りで、言葉と目盛りの意味を合わせる
+function updateModeUI(){
+  const px=S.pixel;
+  $('#pixelWrap').hidden=!S.grid;
+  $('#pixelMode').checked=px;
+  if (S.grid) $('#pixelInfo').textContent=S.grid.aw+'×'+S.grid.ah+'ドットとして扱う';
+  $('#smoothLabel').textContent = px ? '出っぱり・へこみをならす' : '切り取り線のなめらかさ';
+  $('#smooth').value=S.smooth;
+  $('#smoothOut').textContent = px ? S.smooth+'ドット' : S.smooth;
+  $('#h-smooth').textContent = px
+    ? '1ドットだけの出っぱりやへこみを、指定したドット数ぶんならします。0なら、ドットの角をそのまま残します。'
+    : '上げるほど細かい凹凸が減り、切りやすい形になります。';
+  const br=$('#brush'), lb=$('#brushLabel');
+  if (px){ br.min=1; br.max=8; br.step=1; br.value=S.dots; lb.textContent='ブラシの大きさ'; $('#brushOut').textContent=S.dots+'ドット'; }
+  else   { br.min=4; br.max=60; br.step=2; br.value=S.brush; lb.textContent='ブラシの太さ'; $('#brushOut').textContent=S.brush; }
+}
+$('#pixelMode').addEventListener('change',e=>{
+  if (!S.W || !S.grid) return;
+  const keep={W:S.W,H:S.H,N:S.N,sel:S.sel,colorSeq:S.colorSeq,lcol:S.lcol.slice(),
+              user:S.user.map(u=>u?u.slice():null)};
+  S.forcePixel=e.target.checked;
+  setSource(S.src, null, keep);
+});
 $('#snap').addEventListener('change',e=>S.snap=e.target.checked);
 $('#limit').addEventListener('change',e=>S.limit=e.target.checked);
 $('#refine').addEventListener('change',e=>{ S.refine=e.target.checked; updateSummary(); });
@@ -1219,7 +1352,27 @@ $('#clearLayer').addEventListener('click',()=>{ if(!S.user[S.sel]) return; pushU
   const k=S.sel; if (k<S.N) S.user[k]=S.user[k+1].slice(); else S.user[k].fill(0); rebuild(); });
 
 // 範囲の追加・削除（下の層・上の層との包含関係を保つ）
+// 元の層を新しい解像度に移す（ドット絵モードの切り替え用）
+function resampleMask(m, W, H, W2, H2){
+  const o=new Uint8Array(W2*H2);
+  for (let y=0;y<H2;y++){ const sy=Math.min(H-1,(y*H/H2)|0), ro=sy*W, wo=y*W2;
+    for (let x=0;x<W2;x++) o[wo+x]=m[ro+Math.min(W-1,(x*W/W2)|0)]; }
+  return o;
+}
+// 半分以上が入っているマスは、マスごと塗る
+function snapToGrid(region){
+  if (!S.pixel || S.cell<2) return region;
+  const c=S.cell, W=S.W, H=S.H, out=new Uint8Array(W*H);
+  for (let y0=0;y0<H;y0+=c) for (let x0=0;x0<W;x0+=c){
+    const x1=Math.min(W,x0+c), y1=Math.min(H,y0+c);
+    let on=0, tot=0;
+    for (let y=y0;y<y1;y++){ const ro=y*W; for (let x=x0;x<x1;x++){ on+=region[ro+x]; tot++; } }
+    if (on*2>tot) for (let y=y0;y<y1;y++){ const ro=y*W; for (let x=x0;x<x1;x++) out[ro+x]=1; }
+  }
+  return out;
+}
 function applyRegion(region, add){
+  region=snapToGrid(region);
   const n=S.W*S.H, k=S.sel;
   if (add){ for (let j=2;j<=k;j++){ const u=S.user[j]; for (let p=0;p<n;p++) if (region[p]) u[p]=1; } }
   else { for (let j=k;j<=S.N;j++){ const u=S.user[j]; for (let p=0;p<n;p++) if (region[p]) u[p]=0; } }
@@ -1237,8 +1390,8 @@ function sizeEditor(){
   ed.style.width=w+'px'; ed.style.height=h+'px';
 }
 const pat=document.createElement('canvas'); pat.width=pat.height=10;
-{ const x=pat.getContext('2d'); x.fillStyle='rgba(247,247,242,.88)'; x.fillRect(0,0,10,10);
-  x.strokeStyle='rgba(105,115,110,.65)'; x.lineWidth=1.2; x.beginPath();
+{ const x=pat.getContext('2d'); x.fillStyle='rgba(250,250,245,.36)'; x.fillRect(0,0,10,10);
+  x.strokeStyle='rgba(80,92,86,.62)'; x.lineWidth=1.1; x.beginPath();
   x.moveTo(-1,11); x.lineTo(11,-1); x.moveTo(-1,1); x.lineTo(1,-1); x.moveTo(9,11); x.lineTo(11,9); x.stroke(); }
 const maskC=document.createElement('canvas'), layerC=document.createElement('canvas');
 function maskCanvas(m){
@@ -1271,19 +1424,19 @@ function viewTf(ctx){ ctx.setTransform(dpr*V.s,0,0,dpr*V.s,dpr*V.x,dpr*V.y); }
 function drawEditor(live){
   if (!S.masks.length || !edCW) return;
   const ctx=cache.getContext('2d'); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cache.width,cache.height);
-  viewTf(ctx); ctx.imageSmoothingEnabled=V.s<3;
+  viewTf(ctx); ctx.imageSmoothingEnabled=!S.pixel && V.s<3;
   const base=S.showQuant&&S.prevC ? S.prevC : S.src, k=S.sel, m=live||S.masks[k], mc=maskCanvas(m);
   layerC.width=cache.width; layerC.height=cache.height;
-  const lc=layerC.getContext('2d'); viewTf(lc); lc.imageSmoothingEnabled=V.s<3;
+  const lc=layerC.getContext('2d'); viewTf(lc); lc.imageSmoothingEnabled=!S.pixel && V.s<3;
   if (S.pieceOnly){
     ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#E4E7E0'; ctx.fillRect(0,0,cache.width,cache.height); ctx.restore();
-    lc.drawImage(base,0,0,edCW,edCH); lc.globalCompositeOperation='destination-in'; lc.imageSmoothingEnabled=true; lc.drawImage(mc,0,0,edCW,edCH);
+    lc.drawImage(base,0,0,edCW,edCH); lc.globalCompositeOperation='destination-in'; lc.imageSmoothingEnabled=!S.pixel; lc.drawImage(mc,0,0,edCW,edCH);
     ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.shadowColor='rgba(0,0,0,.4)'; ctx.shadowBlur=10*dpr; ctx.shadowOffsetX=3*dpr; ctx.shadowOffsetY=4*dpr;
     ctx.drawImage(layerC,0,0); ctx.restore();
   } else {
     ctx.drawImage(base,0,0,edCW,edCH);
     lc.save(); lc.setTransform(1,0,0,1,0,0); lc.fillStyle=lc.createPattern(pat,'repeat'); lc.fillRect(0,0,layerC.width,layerC.height); lc.restore();
-    lc.globalCompositeOperation='destination-out'; lc.imageSmoothingEnabled=true; lc.drawImage(mc,0,0,edCW,edCH);
+    lc.globalCompositeOperation='destination-out'; lc.imageSmoothingEnabled=!S.pixel; lc.drawImage(mc,0,0,edCW,edCH);
     ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(layerC,0,0); ctx.restore();
   }
   if (S.tool==='parts' && S.showEdges && S.edgeC && !S.pieceOnly){ ctx.save(); ctx.imageSmoothingEnabled=false; ctx.globalAlpha=.9; ctx.drawImage(S.edgeC,0,0,edCW,edCH); ctx.restore(); }
@@ -1320,13 +1473,25 @@ function evPos(e){
 }
 
 function stamp(region, px, py){
-  const W=S.W, H=S.H, cx=px/edCW*W, cy=py/edCH*H, rad=Math.max(0.6,S.brush/2/V.s/edCW*W), r2=rad*rad;
+  const W=S.W, H=S.H, cx=px/edCW*W, cy=py/edCH*H;
+  if (S.pixel){
+    // ドットの格子に合わせて、S.dots 四方のマスを塗る
+    const c=S.cell, r=Math.floor((S.dots-1)/2), gx=Math.floor(cx/c), gy=Math.floor(cy/c);
+    for (let j=gy-r;j<=gy-r+S.dots-1;j++) for (let i=gx-r;i<=gx-r+S.dots-1;i++){
+      const x0=Math.max(0,i*c), x1=Math.min(W,(i+1)*c), y0=Math.max(0,j*c), y1=Math.min(H,(j+1)*c);
+      for (let y=y0;y<y1;y++){ const ro=y*W; for (let x=x0;x<x1;x++) region[ro+x]=1; }
+    }
+    return;
+  }
+  const rad=Math.max(0.6,S.brush/2/V.s/edCW*W), r2=rad*rad;
   const x0=Math.max(0,Math.floor(cx-rad)), x1=Math.min(W-1,Math.ceil(cx+rad));
   const y0=Math.max(0,Math.floor(cy-rad)), y1=Math.min(H-1,Math.ceil(cy+rad));
   for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++){ const dx=x+0.5-cx, dy=y+0.5-cy; if (dx*dx+dy*dy<=r2) region[y*W+x]=1; }
 }
 function brushTo(p){
-  if (lastPt){ const d=Math.hypot(p.x-lastPt.x,p.y-lastPt.y), st=Math.max(1,Math.ceil(d/(S.brush/4/V.s)));
+  if (lastPt){ const d=Math.hypot(p.x-lastPt.x,p.y-lastPt.y);
+    const sp=S.pixel ? Math.max(0.5, S.cell/S.W*edCW*0.4) : S.brush/4/V.s;
+    const st=Math.max(1,Math.ceil(d/sp));
     for (let i=1;i<=st;i++) stamp(strokeRegion, lastPt.x+(p.x-lastPt.x)*i/st, lastPt.y+(p.y-lastPt.y)*i/st); }
   else stamp(strokeRegion,p.x,p.y);
   lastPt=p;
@@ -1482,7 +1647,7 @@ function layerLines(k){
   if (k===1) return ['切らずに、そのまま額のいちばん奥に貼ります。','位置合わせの基準になるので、まっすぐ貼るのがコツです。'];
   const st=S.stats[k];
   if (!st.pieces) return ['この層はまだ範囲が決まっていません。「層を編集」で手前に出したい部分を囲むか、層の数を減らしてください。'];
-  const L=['赤い線に沿って切り抜きます（パーツ'+st.pieces+'個／絵全体の約'+Math.round(st.pct)+'%）。',
+  const L=['赤い線に沿って切り抜きます（パーツ'+st.pieces+'個／絵全体の約'+(st.pct<1?st.pct.toFixed(1):Math.round(st.pct))+'%）。',
     (k-1)+'枚目の同じ位置に重なるよう、シリコンボンドで約'+bondHeight(k)+'mm浮かせて貼ります。'];
   if (st.small) L.push('細かいパーツがあります。デザインナイフとピンセットを使うと安全です。');
   if (st.pct>20) L.push('大きいパーツは、指で軽くカーブをつけると立体感が出ます。');
@@ -1491,7 +1656,7 @@ function layerLines(k){
 }
 function drawGuide(c, k, w){
   const h=Math.round(w*S.H/S.W); c.width=w; c.height=h;
-  const ctx=c.getContext('2d'); ctx.imageSmoothingEnabled=true;
+  const ctx=c.getContext('2d'); ctx.imageSmoothingEnabled=!S.pixel;
   ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h);
   ctx.drawImage(S.src,0,0,w,h);
   if (k>1){
@@ -1681,7 +1846,7 @@ async function buildPdfBlob(pages, imgs, pw, ph){
   for (const k of names){ const im=imgs[k];
     obj(imgId[k],'<< /Type /XObject /Subtype /Image /Width '+im.w+' /Height '+im.h+' /ColorSpace '+im.cs+
       ' /BitsPerComponent '+im.bpc+(im.filter?' /Filter '+im.filter:'')+' /Length '+im.data.length+' >>', im.data); }
-  obj(gsId,'<< /Type /ExtGState /ca 0.62 >>');
+  obj(gsId,'<< /Type /ExtGState /ca 0.36 >>');
   for (let i=0;i<pages.length;i++){
     const raw=enc.encode(pages[i]), z=await deflate(raw), data=z||raw;
     obj(contIds[i],'<< /Length '+data.length+(z?' /Filter /FlateDecode':'')+' >>', data);
@@ -1781,8 +1946,14 @@ async function makeSheetPdf(){
   const k2px=300/72;                                   // 画像は300dpi相当で作る
   const ac=document.createElement('canvas');
   ac.width=Math.max(320,Math.round(plan.artW*k2px)); ac.height=Math.max(320,Math.round(plan.artH*k2px));
-  const actx=ac.getContext('2d'); actx.fillStyle='#fff'; actx.fillRect(0,0,ac.width,ac.height);
-  actx.drawImage(S.src,0,0,ac.width,ac.height);
+  if (S.pixel && S.grid){                      // 1ドットが整数画素になるようにそろえる
+    const mult=Math.max(1, Math.round(ac.width/S.grid.aw));
+    ac.width=S.grid.aw*mult; ac.height=S.grid.ah*mult;
+  }
+  const actx=ac.getContext('2d'); actx.imageSmoothingEnabled=!S.pixel;
+  actx.fillStyle='#fff'; actx.fillRect(0,0,ac.width,ac.height);
+  if (S.pixel && S.grid) actx.drawImage(S.src, S.grid.ox, S.grid.oy, S.grid.aw*S.grid.cell, S.grid.ah*S.grid.cell, 0,0, ac.width, ac.height);
+  else actx.drawImage(S.src,0,0,ac.width,ac.height);
   const imgs={Ia: await jpegImage(ac,0.92), Ft: await grayImage(sheetFoot(plan,k2px))};
   for (let k=1;k<=S.N;k++) imgs['Lb'+k]=await grayImage(sheetLabel(k,plan,k2px));
   const per=Math.min(plan.per,S.N), pages=[];

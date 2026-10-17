@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>シャドーボックス設計図メーカー</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' role='img' aria-label='%E3%82%B7%E3%83%A3%E3%83%89%E3%83%BC%E3%83%9C%E3%83%83%E3%82%AF%E3%82%B9%E8%A8%AD%E8%A8%88%E5%9B%B3%E3%83%A1%E3%83%BC%E3%82%AB%E3%83%BC'%3E %3Crect width='64' height='64' rx='13' fill='%232F5B4D'/%3E %3Crect x='8' y='8' width='34' height='34' rx='6' fill='%23E0402B'/%3E %3Crect x='15' y='15' width='34' height='34' rx='6' fill='%233FA7D6' stroke='%232F5B4D' stroke-width='3'/%3E %3Crect x='22' y='22' width='34' height='34' rx='6' fill='%23F2B632' stroke='%232F5B4D' stroke-width='3'/%3E %3C/svg%3E">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#2F5B4D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
@@ -84,6 +87,13 @@ button,.btn{
   border-radius:0 4px 4px 0;color:var(--muted);font-size:.84rem;line-height:1.65}
 .fhead{display:flex;align-items:center;gap:6px;font-weight:700;font-size:.92rem}
 .fhead output{margin-left:auto;font-weight:400;color:var(--muted)}
+.restored{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--paper);border-radius:6px;
+  padding:10px 14px;box-shadow:0 0 0 1px var(--line),4px 4px 0 var(--stack);font-weight:700;font-size:.92rem}
+.restored .lead{display:flex;align-items:center;gap:8px}
+.restored .spacer{flex:1 1 auto}
+.restored button{font-size:.88rem;padding:6px 14px}
+.restored .iconbtn{border:0;padding:4px;color:var(--muted)}
+#restoreWrap .helptext{margin-top:8px}
 button.primary,.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 button:disabled{opacity:.45;cursor:default}
 button:focus-visible,.btn:focus-within,input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
@@ -179,6 +189,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <symbol id="i-brush" viewBox="0 -960 960 960"><path d="M215-117q-33.83 0-66.92-11.5Q115-140 90-166q35-12 50-35t15-62q0-43.75 30.68-74.38Q216.35-368 260.18-368q43.82 0 74.32 30.62Q365-306.75 365-263q0 64-43.5 105T215-117Zm0-60q35 0 62.5-25t27.5-61q0-20-12.5-32.5T260-308q-20 0-32.5 12.5T215-263q0 39-8.5 57.5T175-183q6 1 20 3.5t20 2.5Zm230-177-90-95 376-376q14-14 31-14.5t32 14.5l29 29q15 15 14.5 32.5T823-732L445-354Zm-185 91Z"/></symbol>
 <symbol id="i-ink_eraser" viewBox="0 -960 960 960"><path d="M678-220h173q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H618l60-60Zm-486 60q-5.91 0-11.46-2-5.54-2-10.54-7l-72-75q-18-17-17.5-41.5T97-327l458-498q16-17 40.57-17 24.56 0 41.43 17l205 215q17 17 18 42t-16 42L512-170q-4.55 5-10.24 7.5T490-160H192Zm288-60 324-352-207-217-455 503 64 66h274Zm0-260Z"/></symbol>
 <symbol id="i-bolt" viewBox="0 -960 960 960"><path d="m393-165 279-335H492l36-286-253 366h154l-36 255Zm-33-195H217q-18 0-26.5-16t2.5-31l338-488q8-11 20-15t24 1q12 5 19 16t5 24l-39 309h176q19 0 27 17t-4 32L388-66q-8 10-20.5 13T344-55q-11-5-17.5-16T322-95l38-265Zm113-115Z"/></symbol>
+<symbol id="i-history" viewBox="0 -960 960 960"><path d="M477-120q-142 0-243.5-95.5T121-451q-1-12 7.5-21t21.5-9q12 0 20.5 8.5T181-451q11 115 95 193t201 78q127 0 215-89t88-216q0-124-89-209.5T477-780q-68 0-127.5 31T246-667h75q13 0 21.5 8.5T351-637q0 13-8.5 21.5T321-607H172q-13 0-21.5-8.5T142-637v-148q0-13 8.5-21.5T172-815q13 0 21.5 8.5T202-785v76q52-61 123.5-96T477-840q75 0 141 28t115.5 76.5Q783-687 811.5-622T840-482q0 75-28.5 141t-78 115Q684-177 618-148.5T477-120Zm34-374 115 113q9 9 9 21.5t-9 21.5q-9 9-21 9t-21-9L460-460q-5-5-7-10.5t-2-11.5v-171q0-13 8.5-21.5T481-683q13 0 21.5 8.5T511-653v159Z"/></symbol>
+<symbol id="i-close" viewBox="0 -960 960 960"><path d="M480-438 270-228q-9 9-21 9t-21-9q-9-9-9-21t9-21l210-210-210-210q-9-9-9-21t9-21q9-9 21-9t21 9l210 210 210-210q9-9 21-9t21 9q9 9 9 21t-9 21L522-480l210 210q9 9 9 21t-9 21q-9 9-21 9t-21-9L480-438Z"/></symbol>
 <symbol id="i-help" viewBox="0 -960 960 960"><path d="M511-258.03q11-11.03 11-27T510.97-312q-11.03-11-27-11T457-311.97q-11 11.03-11 27T457.03-258q11.03 11 27 11T511-258.03ZM480.27-80q-82.74 0-155.5-31.5Q252-143 197.5-197.5t-86-127.34Q80-397.68 80-480.5t31.5-155.66Q143-709 197.5-763t127.34-85.5Q397.68-880 480.5-880t155.66 31.5Q709-817 763-763t85.5 127Q880-563 880-480.27q0 82.74-31.5 155.5Q817-252 763-197.68q-54 54.31-127 86Q563-80 480.27-80Zm.23-60Q622-140 721-239.5t99-241Q820-622 721.19-721T480-820q-141 0-240.5 98.81T140-480q0 141 99.5 240.5t241 99.5Zm-.5-340Zm2.77-180Q513-660 536-641.5q23 18.5 23 47.2 0 26.3-15.65 45.73Q527.7-529.14 508-512q-23 19-40 42.38-17 23.39-17 52.62 0 11 8.4 17.5T479-393q12 0 19.88-8 7.87-8 10.12-20 3-21 16-38t30.23-30.78Q580-510 596-537q16-27 16-58.61 0-50.39-37.5-83.89T485.55-713Q450-713 417-698t-54 44q-7 10-6.5 21.5t9.47 18.5q11.41 8 23.65 5 12.23-3 20.38-14 12.75-17.9 31.88-27.45Q461-660 482.77-660Z"/></symbol>
 </svg>
 <div class="wrap">
@@ -200,6 +212,16 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   </section>
 
   <main id="work" hidden>
+    <div id="restoreWrap" hidden>
+      <div class="restored">
+        <span class="lead"><svg class="ico" aria-hidden="true"><use href="#i-history"></use></svg>前回の続きを復元しました。</span>
+        <button type="button" class="help" aria-label="説明を開く" aria-expanded="false" aria-controls="h-save"><svg class="ico" aria-hidden="true"><use href="#i-help"></use></svg></button>
+        <span class="spacer"></span>
+        <button id="startOver">最初から</button>
+        <button id="dismissRestore" class="iconbtn" aria-label="このお知らせを閉じる"><svg class="ico" aria-hidden="true"><use href="#i-close"></use></svg></button>
+      </div>
+      <p class="helptext" id="h-save" hidden>作業中の画像と層の情報は、このブラウザの中だけに保存されます（IndexedDB）。外部には送られません。「最初から」を押すと消えます。</p>
+    </div>
     <section class="panel settings" aria-label="設定">
       <div class="field">
         <div class="fhead"><label for="smooth">切り取り線のなめらかさ</label><button type="button" class="help" aria-label="説明を開く" aria-expanded="false" aria-controls="h-smooth"><svg class="ico" aria-hidden="true"><use href="#i-help"></use></svg></button><output id="smoothOut">1</output></div>
@@ -209,7 +231,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       <div class="field">
         <div class="fhead"><label for="qColors">読み取りの色数</label><button type="button" class="help" aria-label="説明を開く" aria-expanded="false" aria-controls="h-qc"><svg class="ico" aria-hidden="true"><use href="#i-help"></use></svg></button><output id="qColorsOut">減色なし</output></div>
         <input id="qColors" type="range" min="0" max="40" step="4" value="0">
-<p class="helptext" id="h-qc" hidden>通常は減色なしで十分です。網点やキラ模様で輪郭が乱れる時は16〜24色を試してください。</p>
+<p class="helptext" id="h-qc" hidden>通常は減色なしで十分です。網点やキラ模様でパーツの区切りが細かくなりすぎる時に、16〜24色を試してください。パーツの分け方と、囲んだときの吸着の両方に効きます。</p>
       </div>
       <div class="summary">
         <p id="summary"></p>
@@ -770,6 +792,77 @@ function colorOf(k){ return k===1 ? '#9AA5A0' : (S.lcol[k]||'#999'); }
 function layerName(k){ if (k===1) return '台紙'; const i=S.N-k; return i===0 ? 'いちばん手前' : '手前から'+(i+1)+'番目'; }
 const hexRgb = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
 
+
+// ---------- 作業の保存と復元（このブラウザの中だけ。外部には送らない） ----------
+const DBN='shadowbox-session', STORE='state', KEY='current';
+let srcBlob=null, saveT=0;
+function openDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(DBN,1);
+    r.onupgradeneeded=()=>{ const d=r.result; if(!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE); };
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); r.onblocked=()=>rej(new Error('blocked'));
+  });
+}
+function dbDo(mode, fn){
+  return openDB().then(d=>new Promise((res,rej)=>{
+    const t=d.transaction(STORE,mode), q=fn(t.objectStore(STORE));
+    t.oncomplete=()=>{ d.close(); res(q&&q.result); };
+    t.onerror=()=>{ d.close(); rej(t.error); };
+    t.onabort=()=>{ d.close(); rej(t.error); };
+  }));
+}
+// 1画素1ビットに詰める（層ごとの範囲は面積が大きいので、そのままだと重い）
+function packMask(m){ const o=new Uint8Array((m.length+7)>>3); for (let i=0;i<m.length;i++) if (m[i]) o[i>>3]|=1<<(i&7); return o; }
+function unpackMask(b,n){ const o=new Uint8Array(n); for (let i=0;i<n;i++) o[i]=(b[i>>3]>>(i&7))&1; return o; }
+
+function scheduleSave(){ clearTimeout(saveT); saveT=setTimeout(saveSession,800); }
+function saveSession(){
+  if (!S.W || !srcBlob) return Promise.resolve();
+  const rec={ v:1, at:Date.now(), img:srcBlob, srcW:S.srcW, srcH:S.srcH, W:S.W, H:S.H,
+    N:S.N, sel:S.sel, lcol:S.lcol.slice(), colorSeq:S.colorSeq,
+    user:S.user.map(u=>u?packMask(u):null),
+    set:{smooth:S.smooth, qK:S.qK, detail:S.detail, tool:S.tool, tab:S.tab, brush:S.brush,
+         showEdges:S.showEdges, snap:S.snap, limit:S.limit, refine:S.refine,
+         pieceOnly:S.pieceOnly, showQuant:S.showQuant} };
+  // 容量超過などで保存できなくても、作業そのものは続けられる
+  return dbDo('readwrite', st=>st.put(rec,KEY)).catch(()=>{});
+}
+function clearSession(){ return dbDo('readwrite', st=>st.delete(KEY)).catch(()=>{}); }
+function loadSession(){ return dbDo('readonly', st=>st.get(KEY)).catch(()=>null); }
+function blobToImage(blob){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(blob), im=new Image();
+    im.onload=()=>{ URL.revokeObjectURL(url); res(im); };
+    im.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error('画像を復元できませんでした')); };
+    im.src=url;
+  });
+}
+// 保存してあった設定を、解析を始める前に戻す（減色・細かさは解析結果を左右するため）
+function applySaved(st){
+  if (!st) return;
+  const num=(v,d)=>(typeof v==='number'&&isFinite(v))?v:d;
+  S.smooth=num(st.smooth,S.smooth); S.qK=num(st.qK,S.qK);
+  S.detail=num(st.detail,S.detail); S.brush=num(st.brush,S.brush);
+  S.showEdges=st.showEdges!==false; S.snap=st.snap!==false; S.refine=st.refine!==false;
+  S.limit=!!st.limit; S.pieceOnly=!!st.pieceOnly; S.showQuant=!!st.showQuant;
+  $('#smooth').value=S.smooth; $('#smoothOut').textContent=S.smooth;
+  $('#qColors').value=S.qK;   $('#qColorsOut').textContent=S.qK?S.qK+'色':'減色なし';
+  $('#detail').value=S.detail; $('#detailOut').textContent=S.detail;
+  $('#brush').value=S.brush;   $('#brushOut').textContent=S.brush;
+  $('#showEdges').checked=S.showEdges; $('#snap').checked=S.snap; $('#limit').checked=S.limit;
+  $('#refine').checked=S.refine; $('#pieceOnly').checked=S.pieceOnly; $('#showQuant').checked=S.showQuant;
+}
+function restoreUI(st){
+  if (!st) return;
+  const tb=document.querySelector('[data-tool="'+st.tool+'"]'); if (tb) tb.click();
+  if (st.tab && st.tab!=='edit' && tabs[st.tab]) tabs[st.tab].click();
+}
+$('#startOver').addEventListener('click', async()=>{ await clearSession(); location.reload(); });
+$('#dismissRestore').addEventListener('click', ()=>{ $('#restoreWrap').hidden=true; });
+$('#work').addEventListener('change', scheduleSave);
+$('#work').addEventListener('input', scheduleSave);
+window.addEventListener('pagehide', ()=>{ clearTimeout(saveT); saveSession(); });
+
 // ---------- 「？」の中に説明をしまう ----------
 document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('.help'); if (!b) return;
@@ -783,23 +876,28 @@ fileIn.addEventListener('change', e => { const f=e.target.files[0]; if (f) loadF
 ['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
 ['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', e => { const f=e.dataTransfer.files[0]; if (f) loadFile(f); });
-$('#sampleBtn').addEventListener('click', () => setSource(makeSample()));
+$('#sampleBtn').addEventListener('click', async () => {
+  const c=makeSample();
+  srcBlob=await new Promise(r=>c.toBlob(r,'image/png'));
+  setSource(c);
+});
 $('#changeImg').addEventListener('click', () => fileIn.click());
 
 function startMsg(t){ const m=$('#startMsg'); m.textContent=t; m.hidden=!t; }
 function loadFile(file){
   if (!file.type.startsWith('image/')){ startMsg('画像ファイルではありません。PNG か JPEG を選んでください。'); return; }
   const url=URL.createObjectURL(file), img=new Image();
-  img.onload=()=>{ setSource(img); URL.revokeObjectURL(url); };
+  img.onload=()=>{ srcBlob=file; setSource(img); URL.revokeObjectURL(url); };
   img.onerror=()=>{ startMsg('この画像は読み込めませんでした。PNG か JPEG で保存し直してから選んでください。'); URL.revokeObjectURL(url); };
   img.src=url;
 }
 function setBusy(b, t){ $('#busy').hidden=!b; if (t) $('#busy div').textContent=t; }
-function setSource(src){
+function setSource(src, saved){
   startMsg('');
+  if (saved) applySaved(saved.set); else $('#restoreWrap').hidden=true;
   S.src=src; S.srcW=src.naturalWidth||src.width; S.srcH=src.naturalHeight||src.height;
   $('#start').hidden=true; $('#work').hidden=false;
-  setBusy(true,'画像を読み込んでいます…');
+  setBusy(true, saved ? '前回の続きを読み込んでいます…' : '画像を読み込んでいます…');
   setTimeout(()=>{
     try{
       const max=720, sc=Math.min(1, max/Math.max(S.srcW,S.srcH));
@@ -810,9 +908,18 @@ function setSource(src){
       S.labS=Algo.bilateral(Algo.toLab(S.rgb, S.W*S.H), S.W, S.H, 2);
       applyQuant();
       buildPartsNow();
-      S.N=2; S.colorSeq=0; S.user=[null,null,new Uint8Array(S.W*S.H)]; S.lcol=[null,null,newColor()];
-      S.undo=[]; S.sel=2; S.last=null;
+      const ok = !!saved && saved.W===S.W && saved.H===S.H && saved.N>=2 && saved.N<=MAXL
+        && Array.isArray(saved.user) && saved.user.length===saved.N+1 && Array.isArray(saved.lcol);
+      if (ok){
+        S.N=saved.N; S.colorSeq=saved.colorSeq||saved.N;
+        S.user=saved.user.map(u=>u?unpackMask(u,S.W*S.H):null);
+        S.lcol=saved.lcol.slice(); S.sel=Math.min(Math.max(2,saved.sel||2),S.N);
+      } else {
+        S.N=2; S.colorSeq=0; S.user=[null,null,new Uint8Array(S.W*S.H)]; S.lcol=[null,null,newColor()]; S.sel=2;
+      }
+      S.undo=[]; S.last=null;
       V.s=1; V.x=0; V.y=0; buildChips(); sizeEditor(); clampView(); rebuild(); updateLimitUI();
+      if (ok) restoreUI(saved.set); else scheduleSave();
     }catch(e){ console.error(e); $('#edHint').textContent='画像の読み込み中にエラーが起きました（'+e.message+'）。別の画像で試してください。'; }
     setBusy(false);
   },40);
@@ -926,8 +1033,8 @@ function applyQuant(){
 let quantT=0;
 $('#qColors').addEventListener('input',e=>{
   S.qK=+e.target.value; $('#qColorsOut').textContent=S.qK?S.qK+'色':'減色なし';
-  clearTimeout(quantT); quantT=setTimeout(()=>{ if (!S.W) return; setBusy(true,'読み取り用の画像を作り直しています…');
-    setTimeout(()=>{ applyQuant(); if (S.showQuant) drawEditor(); setBusy(false); },30); },200);
+  clearTimeout(quantT); quantT=setTimeout(()=>{ if (!S.W) return; setBusy(true,'読み取り直してパーツに分けています…');
+    setTimeout(()=>{ try{ applyQuant(); buildPartsNow(); drawEditor(); }catch(err){ console.error(err); } setBusy(false); },30); },200);
 });
 $('#pieceOnly').addEventListener('change',e=>{ S.pieceOnly=e.target.checked; drawEditor(); });
 $('#showQuant').addEventListener('change',e=>{ S.showQuant=e.target.checked; drawEditor(); });
@@ -936,7 +1043,7 @@ $('#showQuant').addEventListener('change',e=>{ S.showQuant=e.target.checked; dra
 let hoverId=-1;
 const hoverC=document.createElement('canvas');
 function buildPartsNow(){
-  S.parts=Algo.buildParts(S.labS,S.W,S.H,S.detail);
+  S.parts=Algo.buildParts(S.lab,S.W,S.H,S.detail);   // S.lab は減色なしなら S.labS と同じ
   const P=S.parts, W=S.W, H=S.H, c=document.createElement('canvas'); c.width=W; c.height=H;
   const o=c.getContext('2d'), id=o.createImageData(W,H);
   for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const p=y*W+x, a=P.id[p]; if (a<0) continue;
@@ -1028,6 +1135,7 @@ function rebuild(){
   if (S.tab==='3d') show3D();
   $('#undo').disabled=!S.undo.length;
   updateLimitUI();
+  scheduleSave();
 }
 function updateSummary(){
   const done=S.stats.filter((s,k)=>k>=2&&s&&s.pieces>0).length;
@@ -1086,7 +1194,7 @@ document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',(
   const lasso=S.tool.startsWith('lasso'), parts=S.tool==='parts';
   $('#snapWrap').hidden=!lasso; $('#cvBadge').hidden=!lasso; $('#brushField').hidden=!S.tool.startsWith('brush');
   $('#detailField').hidden=!parts; $('#edgesWrap').hidden=!parts; setHover(-1); updateLimitUI(); drawEditor();
-  updateSummary();
+  updateSummary(); scheduleSave();
 }));
 
 function buildChips(){
@@ -1365,6 +1473,7 @@ Object.entries(tabs).forEach(([name,btn])=>btn.addEventListener('click',()=>{
   if (name==='edit'){ sizeEditor(); drawEditor(); }
   if (name==='guide') renderGuide();
   if (name==='3d') show3D();
+  scheduleSave();
 }));
 
 // ---------- 切り出しガイド ----------
@@ -1840,6 +1949,18 @@ if (location.hash==='#debug') window.__sb={S, V, grabCutSelect:(...a)=>grabCutSe
   canSave = canSave || !!DL;
   document.querySelectorAll('.needs-dl').forEach(b=>b.hidden=!canSave);
   if (S.tab==='guide'){ S.dirtyGuide=true; renderGuide(); }
+})();
+
+// ---------- 起動：前回の続きがあれば戻す ----------
+(async()=>{
+  const rec = await loadSession();
+  if (!rec || rec.v!==1 || !rec.img) return;
+  let img;
+  try{ img = await blobToImage(rec.img); }
+  catch(e){ await clearSession(); return; }
+  srcBlob = rec.img;
+  $('#restoreWrap').hidden = false;
+  setSource(img, rec);
 })();
 })();
 </script>

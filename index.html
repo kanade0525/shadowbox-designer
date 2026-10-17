@@ -1,0 +1,1518 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>シャドーボックス設計図メーカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --mat:#2F5B4D; --grid:rgba(255,255,255,.06); --grid-strong:rgba(255,255,255,.13);
+  --on-mat:#F3F6F1; --on-mat-muted:#C3D3CB;
+  --paper:#FCFCF9; --paper-2:#F0F1EA; --ink:#1C2522; --muted:#56635E; --line:#D7DBD2;
+  --accent:#F2B632; --accent-ink:#2A2000; --blue:#3FA7D6; --cut:#E0402B;
+  --stack:rgba(0,0,0,.22);
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --mat:#142923; --grid:rgba(255,255,255,.04); --grid-strong:rgba(255,255,255,.09);
+    --on-mat:#EAF1EC; --on-mat-muted:#9FB3AA;
+    --paper:#1E2A27; --paper-2:#26342F; --ink:#E8EEEA; --muted:#A3B2AC; --line:#34453F;
+    --cut:#FF6B57; --stack:rgba(0,0,0,.45);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --mat:#142923; --grid:rgba(255,255,255,.04); --grid-strong:rgba(255,255,255,.09);
+  --on-mat:#EAF1EC; --on-mat-muted:#9FB3AA;
+  --paper:#1E2A27; --paper-2:#26342F; --ink:#E8EEEA; --muted:#A3B2AC; --line:#34453F;
+  --cut:#FF6B57; --stack:rgba(0,0,0,.45);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; min-height:100%;
+  font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+  color:var(--ink); background-color:var(--mat);
+  background-image:
+    linear-gradient(var(--grid-strong) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-strong) 1px,transparent 1px),
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:120px 120px,120px 120px,24px 24px,24px 24px;
+  line-height:1.7;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 16px 64px}
+.top{color:var(--on-mat);margin:8px 0 28px}
+.top h1{
+  font-family:"Dela Gothic One","Zen Kaku Gothic New",sans-serif;font-weight:400;
+  font-size:clamp(30px,6.4vw,58px);line-height:1.15;margin:0 0 14px;letter-spacing:.02em;
+  text-shadow:3px 3px 0 var(--accent),6px 6px 0 var(--blue),9px 9px 0 var(--cut);
+}
+.top p{margin:0;max-width:40em;color:var(--on-mat-muted)}
+.panel{
+  background:var(--paper);border-radius:6px;padding:20px;
+  box-shadow:0 0 0 1px var(--line),5px 5px 0 var(--stack);
+}
+.drop{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;
+  border:2px dashed var(--line);border-radius:6px;padding:40px 16px;cursor:pointer;
+}
+.drop.over{border-color:var(--accent);background:var(--paper-2)}
+.drop strong{font-size:1.15rem}
+.drop small{color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button,.btn{
+  font:inherit;font-weight:700;font-size:.95rem;cursor:pointer;
+  border:1.5px solid var(--ink);background:var(--paper);color:var(--ink);
+  padding:8px 16px;border-radius:999px;line-height:1.4;
+}
+button.primary,.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,.btn:focus-within,input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+#work{display:flex;flex-direction:column;gap:22px}
+.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px 24px;align-items:start}
+.field label{display:flex;justify-content:space-between;font-weight:700;font-size:.92rem}
+.field label output{font-weight:400;color:var(--muted)}
+.field small{display:block;color:var(--muted);font-size:.8rem;line-height:1.5}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.summary{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:14px}
+.summary p{margin:0}
+.summary b{font-size:1.1rem}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{border-color:var(--on-mat-muted);background:transparent;color:var(--on-mat)}
+.tabs button[aria-selected="true"]{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.chip{display:inline-flex;align-items:center;gap:8px;font-weight:700;padding:6px 14px}
+.chip i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.tools{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-bottom:12px}
+.seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:999px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:6px 14px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.tools .field{min-width:160px}
+.check{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:.92rem;cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+.cvbadge{font-size:.82rem;color:var(--muted);padding:3px 10px;border-radius:999px;border:1px dashed var(--line)}
+.cvbadge[data-state="ready"]{color:var(--ink);border:1px solid #4FB477}
+.cvbadge[data-state="failed"]{color:var(--cut);border-color:var(--cut)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.88rem;margin:0 0 8px}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.legend i{width:22px;height:16px;border-radius:2px;display:inline-block;border:1px solid var(--line)}
+.sw-piece{background:linear-gradient(135deg,#6EC1EE,#3E6CD3);outline:2px solid #E0402B;outline-offset:-2px}
+.sw-waste{background:repeating-linear-gradient(-45deg,#F6F6F1 0 4px,#9AA39E 4px 5px)}
+.seg{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));border-radius:12px;width:100%;max-width:640px}
+.seg button{border-radius:0}
+#edWrap{width:100%;display:flex;justify-content:center;background:var(--paper-2);border-radius:4px;padding:8px}
+#ed{touch-action:none;cursor:crosshair;display:block;max-width:100%}
+.layerbar{margin:0 0 14px;gap:8px}
+.layerbar button{font-size:.88rem;padding:6px 14px}
+.zoombar{margin-bottom:8px;gap:8px}
+.zoombar button{padding:4px 12px;min-width:40px}
+.zoombar output{min-width:3.5em;text-align:center;font-weight:700}
+.zoombar small{color:var(--muted);font-size:.8rem}
+.hint{color:var(--muted);font-size:.86rem;margin:10px 0 0}
+.glist{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;margin-top:14px}
+.gcard{border:1px solid var(--line);border-radius:6px;padding:12px;background:var(--paper)}
+.gcard h3{margin:0 0 8px;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+.gcard h3 i{width:14px;height:14px;border-radius:50%;display:inline-block}
+.gcard canvas{width:100%;height:auto;display:block;border-radius:3px;background:#fff}
+.gcard ul{margin:10px 0 0;padding-left:1.1em;font-size:.9rem}
+.gcard li{margin:2px 0}
+.gcard .mini{margin-top:8px;font-size:.82rem;padding:5px 12px}
+#v3d{position:relative;width:100%;height:min(68vh,580px);min-height:320px;border-radius:4px;overflow:hidden;
+  background:radial-gradient(circle at 50% 40%,var(--paper-2),var(--paper));touch-action:none;cursor:grab}
+#v3d canvas{display:block;width:100%;height:100%}
+#v3dMsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center;color:var(--muted)}
+.msg{margin:12px 0 0;color:var(--cut);font-weight:700}
+#busy{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,20,17,.45);z-index:20}
+#busy div{background:var(--paper);color:var(--ink);padding:16px 24px;border-radius:6px;font-weight:700;box-shadow:5px 5px 0 var(--stack)}
+[hidden]{display:none !important}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>シャドーボックス<br>設計図メーカー</h1>
+    <p>カードや絵の画像を、自動でパーツに分解。「これは2枚目、これは3枚目」とタップしていくだけで、層ごとの切り出しガイドと3Dの完成イメージができあがります。画像はこのブラウザの中だけで処理され、外部には送られません。</p>
+  </header>
+
+  <section id="start" class="panel">
+    <label class="drop" id="drop">
+      <strong>画像を選ぶか、ここにドロップ</strong>
+      <small>PNG・JPEG など。カードを正面からまっすぐ撮った画像やスキャン画像がおすすめです。</small>
+      <span class="btn primary">画像を選ぶ<input id="file" type="file" accept="image/*" class="visually-hidden"></span>
+    </label>
+    <div class="row" style="margin-top:14px;justify-content:center">
+      <button id="sampleBtn">サンプル画像で試す</button>
+    </div>
+    <p class="msg" id="startMsg" hidden></p>
+  </section>
+
+  <main id="work" hidden>
+    <section class="panel settings" aria-label="設定">
+      <div class="field">
+        <label for="smooth">切り取り線のなめらかさ<output id="smoothOut">1</output></label>
+        <input id="smooth" type="range" min="0" max="4" step="1" value="1">
+        <small>上げるほど細かい凹凸が減り、切りやすい形になります。</small>
+      </div>
+      <div class="field">
+        <label for="qColors">読み取りの色数<output id="qColorsOut">減色なし</output></label>
+        <input id="qColors" type="range" min="0" max="40" step="4" value="0">
+        <small>通常は減色なしで十分です。網点やキラ模様で輪郭が乱れる時は16〜24色を試してください。</small>
+      </div>
+      <div class="summary">
+        <p id="summary"></p>
+        <button id="changeImg">別の画像にする</button>
+      </div>
+    </section>
+
+    <nav class="tabs" role="tablist" aria-label="表示の切り替え">
+      <button role="tab" id="t-edit" aria-selected="true" aria-controls="tab-edit">層を編集</button>
+      <button role="tab" id="t-guide" aria-selected="false" aria-controls="tab-guide">切り出しガイド</button>
+      <button role="tab" id="t-3d" aria-selected="false" aria-controls="tab-3d">3Dで確認</button>
+    </nav>
+
+    <section id="tab-edit" class="panel" role="tabpanel" aria-labelledby="t-edit">
+      <div class="chips" id="chips"></div>
+      <div class="row layerbar">
+        <button id="addBehind" class="primary">＋ 奥に層を追加</button>
+        <button id="addFront">＋ 手前に層を追加</button>
+        <button id="delLayer">この層を削除</button>
+      </div>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="道具">
+          <button data-tool="parts" aria-pressed="true">パーツを選ぶ</button>
+          <button data-tool="lassoAdd" aria-pressed="false">囲んで追加</button>
+          <button data-tool="lassoRem" aria-pressed="false">囲んで削除</button>
+          <button data-tool="brushAdd" aria-pressed="false">ブラシで追加</button>
+          <button data-tool="brushRem" aria-pressed="false">ブラシで削除</button>
+        </div>
+        <div class="field" id="detailField">
+          <label for="detail">パーツの細かさ<output id="detailOut">5</output></label>
+          <input id="detail" type="range" min="1" max="10" step="1" value="5">
+        </div>
+        <label class="check" id="edgesWrap"><input type="checkbox" id="showEdges" checked> パーツの区切りを表示</label>
+        <label class="check" id="snapWrap" hidden><input type="checkbox" id="snap" checked> 輪郭に吸着</label>
+        <label class="check" id="limitWrap" hidden><input type="checkbox" id="limit"> いちばん奥の層の範囲の中から選ぶ</label>
+        <span class="cvbadge" id="cvBadge" data-state="loading" hidden>高精度モード（OpenCV）を準備しています…</span>
+        <label class="check" id="refineWrap" hidden><input type="checkbox" id="refine" checked> 直前の囲みを補正（吸着）</label>
+        <div class="field" id="brushField" hidden>
+          <label for="brush">ブラシの太さ<output id="brushOut">16</output></label>
+          <input id="brush" type="range" min="4" max="60" step="2" value="16">
+        </div>
+        <button id="undo" disabled>元に戻す</button>
+        <button id="clearLayer">この層をやり直す</button>
+      </div>
+      <div class="row zoombar">
+        <button id="zoomOutBtn" aria-label="縮小">－</button>
+        <output id="zoomOut">100%</output>
+        <button id="zoomIn" aria-label="拡大">＋</button>
+        <button id="zoomFit">全体を表示</button>
+        <small>スマホは2本指で拡大・移動、パソコンは Ctrl＋ホイールで拡大できます。</small>
+      </div>
+      <div id="edWrap"><canvas id="ed" aria-label="切り抜き範囲の編集キャンバス"></canvas></div>
+      <p class="hint" id="edHint"></p>
+      <div class="legend" style="margin-top:12px">
+        <span><i class="sw-piece"></i>色が見えている部分：赤線で切り抜いて使うパーツ</span>
+        <span><i class="sw-waste"></i>斜線の部分：切り落として捨てる</span>
+      </div>
+      <div class="row" style="margin-bottom:10px">
+        <label class="check"><input type="checkbox" id="pieceOnly"> 切り抜いたパーツだけ表示</label>
+        <label class="check"><input type="checkbox" id="showQuant"> 読み取り用の画像を表示</label>
+      </div>
+
+    </section>
+
+    <section id="tab-guide" class="panel" role="tabpanel" aria-labelledby="t-guide" hidden>
+      <div class="row" style="justify-content:space-between">
+        <p style="margin:0" id="guideLead"></p>
+        <button id="saveSheet" class="primary needs-dl" hidden>設計図を画像で保存</button>
+      </div>
+      <div class="glist" id="guideList"></div>
+      <p class="msg" id="guideMsg" hidden></p>
+    </section>
+
+    <section id="tab-3d" class="panel" role="tabpanel" aria-labelledby="t-3d" hidden>
+      <div id="v3d"><div id="v3dMsg" hidden></div></div>
+      <div class="tools" style="margin-top:12px;margin-bottom:0">
+        <div class="field" style="min-width:220px">
+          <label for="gap">層の間隔<output id="gapOut">ふつう</output></label>
+          <input id="gap" type="range" min="10" max="80" step="2" value="26">
+        </div>
+        <button id="resetView">正面に戻す</button>
+      </div>
+      <p class="hint">ドラッグで回転、ホイールやピンチで拡大・縮小できます。</p>
+    </section>
+  </main>
+</div>
+<div id="busy" hidden><div>画像を解析しています…</div></div>
+
+<script>
+// ALGO-START
+const Algo = (() => {
+  function toLab(d, n){
+    const out = new Float32Array(n*3);
+    const lin = new Float32Array(256);
+    for (let i=0;i<256;i++){ const c=i/255; lin[i] = c<=0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055,2.4); }
+    const f = t => t>0.008856 ? Math.cbrt(t) : 7.787*t + 16/116;
+    for (let i=0;i<n;i++){
+      const a = d[i*4+3]/255;
+      const r = lin[d[i*4]]*a + (1-a), g = lin[d[i*4+1]]*a + (1-a), b = lin[d[i*4+2]]*a + (1-a);
+      const X = (r*0.4124 + g*0.3576 + b*0.1805)/0.95047;
+      const Y =  r*0.2126 + g*0.7152 + b*0.0722;
+      const Z = (r*0.0193 + g*0.1192 + b*0.9505)/1.08883;
+      const fx=f(X), fy=f(Y), fz=f(Z);
+      out[i*3]=116*fy-16; out[i*3+1]=500*(fx-fy); out[i*3+2]=200*(fy-fz);
+    }
+    return out;
+  }
+
+  // 指定ピクセル群の代表色を k-means で求める
+  function centers(lab, idx, K){
+    const m=idx.length; if (!m) return new Float32Array(0);
+    K=Math.min(K,m);
+    let seed=987654321; const rand=()=>(seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296;
+    const step=Math.max(1,Math.floor(m/3000)), samp=[]; for (let i=0;i<m;i+=step) samp.push(idx[i]);
+    const C=new Float32Array(K*3), s0=samp[Math.floor(samp.length/2)];
+    C[0]=lab[s0*3]; C[1]=lab[s0*3+1]; C[2]=lab[s0*3+2];
+    const dmin=new Float32Array(samp.length).fill(Infinity);
+    for (let k=1;k<K;k++){
+      let sum=0;
+      for (let s=0;s<samp.length;s++){ const i=samp[s]*3;
+        const dl=lab[i]-C[(k-1)*3], da=lab[i+1]-C[(k-1)*3+1], db=lab[i+2]-C[(k-1)*3+2];
+        const dd=dl*dl+da*da+db*db; if (dd<dmin[s]) dmin[s]=dd; sum+=dmin[s]; }
+      let r=rand()*sum, pick=samp[samp.length-1];
+      for (let s=0;s<samp.length;s++){ r-=dmin[s]; if (r<=0){pick=samp[s];break;} }
+      C[k*3]=lab[pick*3]; C[k*3+1]=lab[pick*3+1]; C[k*3+2]=lab[pick*3+2];
+    }
+    const sums=new Float64Array(K*3), cnt=new Float64Array(K);
+    for (let it=0;it<6;it++){
+      sums.fill(0); cnt.fill(0);
+      for (const p of samp){ const L=lab[p*3],A=lab[p*3+1],B=lab[p*3+2]; let best=0,bd=Infinity;
+        for (let k=0;k<K;k++){ const dl=L-C[k*3],da=A-C[k*3+1],db=B-C[k*3+2],dd=dl*dl+da*da+db*db; if(dd<bd){bd=dd;best=k;} }
+        sums[best*3]+=L; sums[best*3+1]+=A; sums[best*3+2]+=B; cnt[best]++; }
+      for (let k=0;k<K;k++) if (cnt[k]){ C[k*3]=sums[k*3]/cnt[k]; C[k*3+1]=sums[k*3+1]/cnt[k]; C[k*3+2]=sums[k*3+2]/cnt[k]; }
+    }
+    return C;
+  }
+  function nearest(lab, p, C){
+    let bd=Infinity; const L=lab[p*3],A=lab[p*3+1],B=lab[p*3+2];
+    for (let k=0;k<C.length;k+=3){ const dl=L-C[k],da=A-C[k+1],db=B-C[k+2],dd=dl*dl+da*da+db*db; if(dd<bd) bd=dd; }
+    return Math.sqrt(bd);
+  }
+  // 2パスの距離変換（mask=1 の各画素から、mask=0 までの距離）
+  function distTo0(m, W, H){
+    const n=W*H, d=new Float32Array(n), D=1.4142;
+    for (let p=0;p<n;p++) d[p]=m[p]?1e9:0;
+    for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const p=y*W+x; if(!d[p]) continue; let v=d[p];
+      v=Math.min(v, x>0?d[p-1]+1:1, y>0?d[p-W]+1:1, (x>0&&y>0)?d[p-W-1]+D:D, (x<W-1&&y>0)?d[p-W+1]+D:D); d[p]=v; }
+    for (let y=H-1;y>=0;y--) for (let x=W-1;x>=0;x--){ const p=y*W+x; if(!d[p]) continue; let v=d[p];
+      v=Math.min(v, x<W-1?d[p+1]+1:1, y<H-1?d[p+W]+1:1, (x<W-1&&y<H-1)?d[p+W+1]+D:D, (x>0&&y<H-1)?d[p+W-1]+D:D); d[p]=v; }
+    return d;
+  }
+
+  // 囲んだ範囲の中から、外側と色の違う「物体」を輪郭に吸着させて取り出す（GrabCut の簡易版）
+  function snapSelect(lab, W, H, inside){
+    const n=W*H;
+    let area=0; for (let p=0;p<n;p++) area+=inside[p];
+    if (area<40) return inside.slice();
+    const outside=new Uint8Array(n); for (let p=0;p<n;p++) outside[p]=inside[p]?0:1;
+    const dIn=distTo0(inside,W,H), dOut=distTo0(outside,W,H);
+    const sq=Math.sqrt(area), ring=Math.max(6, sq*0.08), band=Math.max(3, sq*0.06);
+    const bgIdx=[], fgIdx=[];
+    for (let p=0;p<n;p++){
+      if (!inside[p]){ if (dOut[p]<=ring) bgIdx.push(p); }
+      else if (dIn[p]<=2) bgIdx.push(p);
+      else if (dIn[p]>band) fgIdx.push(p);
+    }
+    if (fgIdx.length<20) for (let p=0;p<n;p++) if (inside[p] && dIn[p]>2) fgIdx.push(p);
+    if (!bgIdx.length || !fgIdx.length) return inside.slice();
+    // 背景にもある色は「物体の色」から外す
+    const pruneF=(CF,CB)=>{
+      const keep=[]; let far=-1, farD=-1;
+      for (let k=0;k<CF.length;k+=3){
+        let bd=Infinity; for (let j=0;j<CB.length;j+=3){ const dl=CF[k]-CB[j],da=CF[k+1]-CB[j+1],db=CF[k+2]-CB[j+2]; bd=Math.min(bd,Math.sqrt(dl*dl+da*da+db*db)); }
+        if (bd>=10) keep.push(CF[k],CF[k+1],CF[k+2]);
+        if (bd>farD){farD=bd;far=k;}
+      }
+      if (!keep.length && far>=0) keep.push(CF[far],CF[far+1],CF[far+2]);
+      return Float32Array.from(keep);
+    };
+    let CB=centers(lab,bgIdx,8), CF=pruneF(centers(lab,fgIdx,8),CB);
+
+    // 隣どうしの色の近さ（境界ほど小さい重み）
+    const ins=[]; for (let p=0;p<n;p++) if (inside[p]) ins.push(p);
+    let s2=0, sc=0;
+    for (const p of ins){ const x=p%W; if (x<W-1){ const q=p+1; const dl=lab[p*3]-lab[q*3],da=lab[p*3+1]-lab[q*3+1],db=lab[p*3+2]-lab[q*3+2]; s2+=dl*dl+da*da+db*db; sc++; } }
+    const inv2s=1/(2*Math.max(1, s2/Math.max(1,sc)));
+    const NB=[[-1,0,1],[1,0,1],[0,-1,1],[0,1,1],[-1,-1,0.707],[1,-1,0.707],[-1,1,0.707],[1,1,0.707]];
+    const wgt=(p,q,base)=>{ const dl=lab[p*3]-lab[q*3],da=lab[p*3+1]-lab[q*3+1],db=lab[p*3+2]-lab[q*3+2]; return base*Math.exp(-(dl*dl+da*da+db*db)*inv2s); };
+
+    const lbl=new Uint8Array(n), dF=new Float32Array(n), dB=new Float32Array(n);
+    const beta=6;
+    for (let round=0;round<4;round++){
+      for (const p of ins){ dF[p]=nearest(lab,p,CF); dB[p]=nearest(lab,p,CB); if (round===0) lbl[p]=(dIn[p]>2 && dF[p]<dB[p])?1:0; }
+      for (let pass=0;pass<5;pass++){
+        for (const p of ins){
+          if (dIn[p]<=1.5){ lbl[p]=0; continue; }
+          const x=p%W, y=(p-x)/W; let c1=dF[p]+2, c0=dB[p];
+          for (const [dx,dy,b] of NB){ const xx=x+dx, yy=y+dy; if (xx<0||yy<0||xx>=W||yy>=H) continue;
+            const q=yy*W+xx, w=beta*wgt(p,q,b); if (lbl[q]) c0+=w; else c1+=w; }
+          lbl[p]=c1<c0?1:0;
+        }
+      }
+      if (round<3){
+        const f=[], b=bgIdx.slice();
+        for (const p of ins){ if (lbl[p]) f.push(p); else if (dIn[p]>2) b.push(p); }
+        if (f.length<10) break;
+        CB=centers(lab,b,8); CF=pruneF(centers(lab,f,8),CB);
+      }
+    }
+    // 小さなかけらを捨て、小さな穴を埋める
+    const comps=labelBinary(lbl,W,H,1); let maxA=0; for (const c of comps.comps) maxA=Math.max(maxA,c.area);
+    for (const p of ins) if (lbl[p] && comps.comps[comps.id[p]].area<Math.max(15,maxA*0.03)) lbl[p]=0;
+    const holes=labelBinary(lbl,W,H,0);
+    let fa=0; for (const p of ins) fa+=lbl[p];
+    for (const p of ins) if (!lbl[p]){ const c=holes.comps[holes.id[p]]; if (!c.touch && c.area<fa*0.02) lbl[p]=1; }
+    return lbl;
+  }
+
+  // 輪郭を残して色ムラだけならす（バイラテラルフィルタ）
+  function bilateral(lab, W, H, iters){
+    const n=W*H, R=2, sc2=2*9*9, sw=[];
+    for (let dy=-R;dy<=R;dy++) for (let dx=-R;dx<=R;dx++) sw.push([dx,dy,Math.exp(-(dx*dx+dy*dy)/(2*1.6*1.6))]);
+    let src=lab;
+    for (let it=0;it<iters;it++){
+      const out=new Float32Array(n*3);
+      for (let y=0;y<H;y++) for (let x=0;x<W;x++){
+        const p=y*W+x, L=src[p*3], A=src[p*3+1], B=src[p*3+2];
+        let sL=0,sA=0,sB=0,sw0=0;
+        for (const [dx,dy,ws] of sw){ const xx=x+dx, yy=y+dy; if (xx<0||yy<0||xx>=W||yy>=H) continue;
+          const q=(yy*W+xx)*3, dl=src[q]-L, da=src[q+1]-A, db=src[q+2]-B;
+          const w=ws*Math.exp(-(dl*dl+da*da+db*db)/sc2); sL+=w*src[q]; sA+=w*src[q+1]; sB+=w*src[q+2]; sw0+=w; }
+        out[p*3]=sL/sw0; out[p*3+1]=sA/sw0; out[p*3+2]=sB/sw0;
+      }
+      src=out;
+    }
+    return src;
+  }
+  // 減色（画像全体を K 色にまとめる）。idx は各画素の色番号
+  function quantize(lab, n, K){
+    const step=Math.max(1,Math.floor(n/20000)), samp=[]; for (let p=0;p<n;p+=step) samp.push(p);
+    const C=centers(lab,samp,K), k3=C.length, out=new Float32Array(n*3), idx=new Uint8Array(n);
+    for (let p=0;p<n;p++){ const L=lab[p*3],A=lab[p*3+1],B=lab[p*3+2]; let bd=Infinity, bi=0;
+      for (let k=0;k<k3;k+=3){ const dl=L-C[k],da=A-C[k+1],db=B-C[k+2],dd=dl*dl+da*da+db*db; if(dd<bd){bd=dd;bi=k;} }
+      out[p*3]=C[bi]; out[p*3+1]=C[bi+1]; out[p*3+2]=C[bi+2]; idx[p]=bi/3; }
+    return {lab:out, idx, K:k3/3};
+  }
+  // 囲んだ範囲のまわりだけ切り出して吸着処理する（高解像度でも速く）
+  function snapCrop(lab, W, H, inside){
+    let x0=W,y0=H,x1=-1,y1=-1,area=0;
+    for (let y=0;y<H;y++) for (let x=0;x<W;x++) if (inside[y*W+x]){ area++; if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+    if (area<40) return inside.slice();
+    const mg=Math.ceil(Math.max(12, Math.sqrt(area)*0.1))+2;
+    x0=Math.max(0,x0-mg); y0=Math.max(0,y0-mg); x1=Math.min(W-1,x1+mg); y1=Math.min(H-1,y1+mg);
+    const cw=x1-x0+1, ch=y1-y0+1, sl=new Float32Array(cw*ch*3), si=new Uint8Array(cw*ch);
+    for (let y=0;y<ch;y++) for (let x=0;x<cw;x++){ const p=(y+y0)*W+x+x0, q=y*cw+x; si[q]=inside[p]; sl[q*3]=lab[p*3]; sl[q*3+1]=lab[p*3+1]; sl[q*3+2]=lab[p*3+2]; }
+    const r=snapSelect(sl,cw,ch,si), out=new Uint8Array(W*H);
+    for (let y=0;y<ch;y++) for (let x=0;x<cw;x++) if (r[y*cw+x]) out[(y+y0)*W+x+x0]=1;
+    return out;
+  }
+
+  function integral(m, W, H){
+    const I=new Int32Array((W+1)*(H+1));
+    for (let y=0;y<H;y++){ let row=0;
+      for (let x=0;x<W;x++){ row+=m[y*W+x]; I[(y+1)*(W+1)+x+1]=I[y*(W+1)+x+1]+row; } }
+    return I;
+  }
+  function morph(m, W, H, r, erode){
+    if (r<=0) return m.slice();
+    const I=integral(m,W,H), out=new Uint8Array(W*H);
+    for (let y=0;y<H;y++){
+      const y0=Math.max(0,y-r), y1=Math.min(H-1,y+r);
+      for (let x=0;x<W;x++){
+        const x0=Math.max(0,x-r), x1=Math.min(W-1,x+r);
+        const s=I[(y1+1)*(W+1)+x1+1]-I[y0*(W+1)+x1+1]-I[(y1+1)*(W+1)+x0]+I[y0*(W+1)+x0];
+        out[y*W+x] = erode ? (s===(x1-x0+1)*(y1-y0+1) ? 1:0) : (s>0?1:0);
+      }
+    }
+    return out;
+  }
+  function labelBinary(m, W, H, val){
+    const n=W*H, id=new Int32Array(n).fill(-1), stack=new Int32Array(n), comps=[];
+    for (let p=0;p<n;p++){
+      if (m[p]!==val || id[p]>=0) continue;
+      const c=comps.length; let sp=0, area=0, touch=false; stack[sp++]=p; id[p]=c;
+      while (sp){
+        const q=stack[--sp], x=q%W, y=(q-x)/W; area++;
+        if (x===0||y===0||x===W-1||y===H-1) touch=true;
+        if (x>0   && id[q-1]<0 && m[q-1]===val){id[q-1]=c;stack[sp++]=q-1;}
+        if (x<W-1 && id[q+1]<0 && m[q+1]===val){id[q+1]=c;stack[sp++]=q+1;}
+        if (y>0   && id[q-W]<0 && m[q-W]===val){id[q-W]=c;stack[sp++]=q-W;}
+        if (y<H-1 && id[q+W]<0 && m[q+W]===val){id[q+W]=c;stack[sp++]=q+W;}
+      }
+      comps.push({area, touch});
+    }
+    return {id, comps};
+  }
+  // 切りやすい形に整える（なめらかさ r）
+  function smoothMask(m, W, H, r){
+    const n=W*H;
+    let a=morph(morph(m,W,H,r,false),W,H,r,true);
+    a=morph(morph(a,W,H,r,true),W,H,r,false);
+    if (r>0){
+      const isl=labelBinary(a,W,H,1);
+      for (let p=0;p<n;p++) if (a[p] && isl.comps[isl.id[p]].area<n*0.00015) a[p]=0;
+      const holes=labelBinary(a,W,H,0);
+      for (let p=0;p<n;p++) if (!a[p]){ const c=holes.comps[holes.id[p]]; if (!c.touch && c.area<n*0.0012) a[p]=1; }
+    }
+    return a;
+  }
+  // マーチングスクエアで輪郭線をたどる
+  function traceLoops(m, W, H){
+    const get=(x,y)=>(x<0||y<0||x>=W||y>=H)?0:m[y*W+x];
+    const PW=2*W+6, pid=(x2,y2)=>(x2+2)+(y2+2)*PW;
+    const sa=[], sb=[];
+    const seg=(a,b)=>{sa.push(a);sb.push(b);};
+    for (let y=-1;y<H;y++) for (let x=-1;x<W;x++){
+      const idx=get(x,y)*8+get(x+1,y)*4+get(x+1,y+1)*2+get(x,y+1);
+      if (idx===0||idx===15) continue;
+      const T=pid(2*x+1,2*y), R=pid(2*x+2,2*y+1), B=pid(2*x+1,2*y+2), L=pid(2*x,2*y+1);
+      switch(idx){
+        case 1: case 14: seg(L,B); break;
+        case 2: case 13: seg(B,R); break;
+        case 3: case 12: seg(L,R); break;
+        case 4: case 11: seg(T,R); break;
+        case 6: case 9:  seg(T,B); break;
+        case 7: case 8:  seg(L,T); break;
+        case 5:  seg(T,R); seg(L,B); break;
+        case 10: seg(L,T); seg(B,R); break;
+      }
+    }
+    const adj=new Map();
+    const addA=(pt,s)=>{ let a=adj.get(pt); if(!a){a=[];adj.set(pt,a);} a.push(s); };
+    for (let s=0;s<sa.length;s++){ addA(sa[s],s); addA(sb[s],s); }
+    const used=new Uint8Array(sa.length), loops=[];
+    const dec=id=>[ ((id%PW)-2)/2+0.5, (Math.floor(id/PW)-2)/2+0.5 ];
+    for (let s0=0;s0<sa.length;s0++){
+      if (used[s0]) continue;
+      used[s0]=1;
+      const start=sa[s0]; let cur=sb[s0]; const pts=[start];
+      let guard=0;
+      while (cur!==start && guard++<1e6){
+        pts.push(cur);
+        const cand=adj.get(cur); let next=-1;
+        for (const s of cand){ if(!used[s]){next=s;break;} }
+        if (next<0) break;
+        used[next]=1; cur = sa[next]===cur ? sb[next] : sa[next];
+      }
+      if (pts.length<6) continue;
+      let poly=[]; for (const id of pts){ const [px,py]=dec(id); poly.push(px,py); }
+      poly=rdp(poly,0.7); if (poly.length<8) continue;
+      poly=chaikin(chaikin(poly));
+      if (Math.abs(polyArea(poly))<4) continue;
+      loops.push(poly);
+    }
+    return loops;
+  }
+  function polyArea(p){ let a=0; for(let i=0;i<p.length;i+=2){const j=(i+2)%p.length; a+=p[i]*p[j+1]-p[j]*p[i+1];} return a/2; }
+  function rdp(p, eps){
+    const n=p.length/2; if (n<4) return p;
+    const keep=new Uint8Array(n); keep[0]=1; keep[n-1]=1;
+    const st=[[0,n-1]];
+    while (st.length){
+      const [a,b]=st.pop(); let md=0, mi=-1;
+      const ax=p[a*2], ay=p[a*2+1], bx=p[b*2], by=p[b*2+1], dx=bx-ax, dy=by-ay, len=Math.hypot(dx,dy)||1;
+      for (let i=a+1;i<b;i++){ const d=Math.abs((p[i*2]-ax)*dy-(p[i*2+1]-ay)*dx)/len; if (d>md){md=d;mi=i;} }
+      if (md>eps && mi>0){ keep[mi]=1; st.push([a,mi],[mi,b]); }
+    }
+    const out=[]; for (let i=0;i<n;i++) if (keep[i]) out.push(p[i*2],p[i*2+1]);
+    return out;
+  }
+  function chaikin(p){
+    const out=[], n=p.length/2;
+    for (let i=0;i<n;i++){
+      const j=(i+1)%n, x0=p[i*2], y0=p[i*2+1], x1=p[j*2], y1=p[j*2+1];
+      out.push(0.75*x0+0.25*x1, 0.75*y0+0.25*y1, 0.25*x0+0.75*x1, 0.25*y0+0.75*y1);
+    }
+    return out;
+  }
+  function pieceStats(m, W, H){
+    const n=W*H, lb=labelBinary(m,W,H,1);
+    let pieces=0, small=false, area=0;
+    for (const c of lb.comps){ if (c.area>=5){ pieces++; area+=c.area; if (c.area<n*0.006) small=true; } }
+    return {pieces, small, pct: area/n*100};
+  }
+  // 選択結果の後片付け：小さなかけらを捨て、小さな穴を埋める
+  function tidy(lbl, W, H){
+    const comps=labelBinary(lbl,W,H,1); let maxA=0, fa=0;
+    for (const c of comps.comps){ maxA=Math.max(maxA,c.area); fa+=c.area; }
+    const out=lbl.slice();
+    for (let p=0;p<out.length;p++) if (out[p] && comps.comps[comps.id[p]].area<Math.max(20,maxA*0.003)) out[p]=0;
+    const holes=labelBinary(out,W,H,0);
+    for (let p=0;p<out.length;p++) if (!out[p]){ const c=holes.comps[holes.id[p]]; if (!c.touch && c.area<fa*0.02) out[p]=1; }
+    return out;
+  }
+  // ---- パーツ分解 ----
+  // 線画（細い暗い線）を見つける
+  function lineMask(lab, W, H){
+    const n=W*H, L=new Float32Array(n); for (let p=0;p<n;p++) L[p]=lab[p*3];
+    const I=new Float64Array((W+1)*(H+1));
+    for (let y=0;y<H;y++){ let row=0; for (let x=0;x<W;x++){ row+=L[y*W+x]; I[(y+1)*(W+1)+x+1]=I[y*(W+1)+x+1]+row; } }
+    const R=5, dark=new Uint8Array(n);
+    for (let y=0;y<H;y++){ const y0=Math.max(0,y-R), y1=Math.min(H-1,y+R);
+      for (let x=0;x<W;x++){ const x0=Math.max(0,x-R), x1=Math.min(W-1,x+R);
+        const s=I[(y1+1)*(W+1)+x1+1]-I[y0*(W+1)+x1+1]-I[(y1+1)*(W+1)+x0]+I[y0*(W+1)+x0];
+        const mean=s/((x1-x0+1)*(y1-y0+1)), v=L[y*W+x];
+        dark[y*W+x]= (v<45 && v<mean-12) ? 1:0; } }
+    const r=Math.max(2, Math.round(Math.max(W,H)/300));
+    const opened=morph(morph(dark,W,H,r,true),W,H,r,false);
+    const line=new Uint8Array(n); let cnt=0;
+    for (let p=0;p<n;p++){ line[p]=dark[p]&&!opened[p]?1:0; cnt+=line[p]; }
+    if (cnt>n*0.25) { line.fill(0); return line; }
+    // 線のふちのにじみ（中間色）も線に含める
+    const grow=morph(line,W,H,1,false);
+    for (let p=0;p<n;p++) if (grow[p] && !line[p]){ const x=p%W,y=(p-x)/W; let mx=0;
+      for (const q of [x>0?p-1:p, x<W-1?p+1:p, y>0?p-W:p, y<H-1?p+W:p]) mx=Math.max(mx,L[q]);
+      if (L[p] < mx-8) line[p]=1; }
+    return line;
+  }
+  // Felzenszwalb のグラフ分割で、色のまとまりごとにパーツへ分ける
+  function segment(lab, W, H, skip, k, minSize){
+    const n=W*H, cap=n*4, ea=new Int32Array(cap), eb=new Int32Array(cap), ew=new Float32Array(cap); let m=0;
+    const add=(p,q)=>{ const dl=lab[p*3]-lab[q*3], da=lab[p*3+1]-lab[q*3+1], db=lab[p*3+2]-lab[q*3+2];
+      ea[m]=p; eb[m]=q; ew[m]=Math.sqrt(dl*dl+da*da+db*db); m++; };
+    for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const p=y*W+x; if (skip[p]) continue;
+      if (x<W-1 && !skip[p+1]) add(p,p+1);
+      if (y<H-1 && !skip[p+W]) add(p,p+W);
+      if (x<W-1 && y<H-1 && !skip[p+W+1]) add(p,p+W+1);
+      if (x>0 && y<H-1 && !skip[p+W-1]) add(p,p+W-1); }
+    // 重みで並べ替え（バケツソート）
+    const B=2048, cnt=new Int32Array(B+1), bk=new Int32Array(m);
+    for (let e=0;e<m;e++){ const b=Math.min(B-1,(ew[e]*16)|0); bk[e]=b; cnt[b+1]++; }
+    for (let b=0;b<B;b++) cnt[b+1]+=cnt[b];
+    const order=new Int32Array(m); for (let e=0;e<m;e++) order[cnt[bk[e]]++]=e;
+    const par=new Int32Array(n), sz=new Int32Array(n).fill(1), th=new Float32Array(n).fill(k);
+    for (let i=0;i<n;i++) par[i]=i;
+    const find=a=>{ while(par[a]!==a){ par[a]=par[par[a]]; a=par[a]; } return a; };
+    for (let i=0;i<m;i++){ const e=order[i]; let a=find(ea[e]), b=find(eb[e]); if (a===b) continue;
+      const w=ew[e]; if (w<=th[a] && w<=th[b]){ if (sz[a]<sz[b]){const t=a;a=b;b=t;} par[b]=a; sz[a]+=sz[b]; th[a]=w+k/sz[a]; } }
+    for (let i=0;i<m;i++){ const e=order[i]; let a=find(ea[e]), b=find(eb[e]); if (a===b) continue;
+      if (sz[a]<minSize || sz[b]<minSize){ if (sz[a]<sz[b]){const t=a;a=b;b=t;} par[b]=a; sz[a]+=sz[b]; } }
+    const id=new Int32Array(n).fill(-1), map=new Int32Array(n).fill(-1); let c=0;
+    for (let p=0;p<n;p++){ if (skip[p]) continue; const r=find(p); if (map[r]<0) map[r]=c++; id[p]=map[r]; }
+    // 線画に囲まれた小さすぎる孤立パーツ（スキップ画素で分断されたもの）は隣へ吸収
+    return {id, count:c};
+  }
+  function buildParts(lab, W, H, detail){
+    const n=W*H, line=lineMask(lab,W,H);
+    const k=12*Math.pow(1.45,10-detail), minSize=Math.max(12, Math.round(n*0.0002*Math.pow(1.5,5-detail)));
+    let {id,count}=segment(lab,W,H,line,k,minSize);
+    // 線で分断されて minSize 未満になったかけらを、隣接する一番大きいパーツへ
+    let size=new Int32Array(count); for (let p=0;p<n;p++) if (id[p]>=0) size[id[p]]++;
+    const owner=new Int32Array(n).fill(-1), q=new Int32Array(n); let qh=0, qt=0;
+    for (let p=0;p<n;p++) if (id[p]>=0 && size[id[p]]>=minSize){ owner[p]=id[p]; q[qt++]=p; }
+    while (qh<qt){ const p=q[qh++], x=p%W, y=(p-x)/W, o=owner[p];
+      const nb=[x>0?p-1:-1, x<W-1?p+1:-1, y>0?p-W:-1, y<H-1?p+W:-1];
+      for (const r of nb){ if (r<0 || owner[r]>=0) continue; if (line[r]) continue; owner[r]=o; q[qt++]=r; } }
+    // 隣り合っていて平均色が近いパーツをまとめる（グラデーションやノイズで細切れになるのを防ぐ）
+    {
+      const T=3+ (10-detail)*1.3;
+      const sL=new Float64Array(count), sA=new Float64Array(count), sB=new Float64Array(count), cn=new Float64Array(count);
+      for (let p=0;p<n;p++){ const o=owner[p]; if (o<0) continue; sL[o]+=lab[p*3]; sA[o]+=lab[p*3+1]; sB[o]+=lab[p*3+2]; cn[o]++; }
+      const pairs=new Set();
+      for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const p=y*W+x, a=owner[p]; if (a<0) continue;
+        if (x<W-1){ const b=owner[p+1]; if (b>=0&&b!==a) pairs.add(a<b?a*count+b:b*count+a); }
+        if (y<H-1){ const b=owner[p+W]; if (b>=0&&b!==a) pairs.add(a<b?a*count+b:b*count+a); } }
+      const par=new Int32Array(count); for (let i=0;i<count;i++) par[i]=i;
+      const find=a=>{ while(par[a]!==a){ par[a]=par[par[a]]; a=par[a]; } return a; };
+      const dist=(a,b)=>Math.hypot(sL[a]/cn[a]-sL[b]/cn[b], sA[a]/cn[a]-sA[b]/cn[b], sB[a]/cn[a]-sB[b]/cn[b]);
+      let list=[...pairs].map(v=>[Math.floor(v/count), v%count]);
+      for (let pass=0;pass<3;pass++){
+        list.forEach(e=>e[2]=dist(find(e[0]),find(e[1])));
+        list.sort((u,v)=>u[2]-v[2]);
+        let merged=0;
+        for (const [a0,b0] of list){ const a=find(a0), b=find(b0); if (a===b) continue;
+          if (cn[a]&&cn[b] && dist(a,b)<T){ par[b]=a; sL[a]+=sL[b]; sA[a]+=sA[b]; sB[a]+=sB[b]; cn[a]+=cn[b]; merged++; } }
+        if (!merged) break;
+      }
+      for (let p=0;p<n;p++) if (owner[p]>=0) owner[p]=find(owner[p]);
+    }
+    // 番号を詰める
+    const map=new Int32Array(count).fill(-1); let c=0;
+    for (let p=0;p<n;p++){ const o=owner[p]; if (o<0) { id[p]=-1; continue; } if (map[o]<0) map[o]=c++; id[p]=map[o]; }
+    // 線画画素も含め、どのパーツにも属さない画素は line として扱う
+    for (let p=0;p<n;p++) if (id[p]<0) line[p]=1;
+    // 目や口のように、1つのパーツの中に閉じている暗い部分は、そのパーツの一部にする
+    {
+      const lid=new Int32Array(n).fill(-1), st=new Int32Array(n); let lc=0;
+      for (let p0=0;p0<n;p0++){
+        if (id[p0]>=0 || lid[p0]>=0) continue;
+        let sp=0, area=0; st[sp++]=p0; lid[p0]=lc; const pix=[], adj=new Map();
+        while (sp){ const q=st[--sp], x=q%W, y=(q-x)/W; pix.push(q); area++;
+          for (const r of [x>0?q-1:-1, x<W-1?q+1:-1, y>0?q-W:-1, y<H-1?q+W:-1]){
+            if (r<0) { adj.set(-2,(adj.get(-2)||0)+1); continue; }
+            if (id[r]>=0){ adj.set(id[r],(adj.get(id[r])||0)+1); continue; }
+            if (lid[r]<0){ lid[r]=lc; st[sp++]=r; } } }
+        lc++;
+        if (area<n*0.02 && adj.size===1 && !adj.has(-2)){ const o=[...adj.keys()][0]; for (const q of pix){ id[q]=o; line[q]=0; } }
+      }
+    }
+    size=new Int32Array(c); for (let p=0;p<n;p++) if (id[p]>=0) size[id[p]]++;
+    const start=new Int32Array(c+1); for (let i=0;i<c;i++) start[i+1]=start[i]+size[i];
+    const fill=start.slice(0,c), list=new Int32Array(start[c]);
+    for (let p=0;p<n;p++){ const i=id[p]; if (i>=0) list[fill[i]++]=p; }
+    return {id, count:c, line, start, list, size};
+  }
+  return {buildParts, toLab, bilateral, quantize, snapCrop, smoothMask, traceLoops, pieceStats, tidy};
+})();
+// ALGO-END
+
+(() => {
+const $ = s => document.querySelector(s);
+const PAL = ['#E0402B','#F2B632','#3FA7D6','#4FB477','#A66DD4','#F27BA0','#2EC4B6','#F28C28'];
+const MAXL = 10;
+const S = { src:null, srcW:0, srcH:0, W:0, H:0, lab:null,
+  N:2, lcol:[], colorSeq:0, smooth:1, qK:0, pieceOnly:false, showQuant:false, prevC:null, gap:0.026, user:[], masks:[], loops:[], stats:[],
+  sel:2, tool:'parts', detail:5, showEdges:true, parts:null, edgeC:null, snap:true, limit:false, refine:true, last:null, brush:16, undo:[], dirty3d:true, dirtyGuide:true, tab:'edit' };
+let DL = null;
+function newColor(){ return PAL[(S.colorSeq++)%PAL.length]; }
+function colorOf(k){ return k===1 ? '#9AA5A0' : (S.lcol[k]||'#999'); }
+// 手前から数えた名前（k は内部番号：1=台紙, N=いちばん手前）
+function layerName(k){ if (k===1) return '台紙'; const i=S.N-k; return i===0 ? 'いちばん手前' : '手前から'+(i+1)+'番目'; }
+const hexRgb = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+
+// ---------- 読み込み ----------
+const fileIn = $('#file'), drop = $('#drop');
+fileIn.addEventListener('change', e => { const f=e.target.files[0]; if (f) loadFile(f); fileIn.value=''; });
+['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => { const f=e.dataTransfer.files[0]; if (f) loadFile(f); });
+$('#sampleBtn').addEventListener('click', () => setSource(makeSample()));
+$('#changeImg').addEventListener('click', () => fileIn.click());
+
+function startMsg(t){ const m=$('#startMsg'); m.textContent=t; m.hidden=!t; }
+function loadFile(file){
+  if (!file.type.startsWith('image/')){ startMsg('画像ファイルではありません。PNG か JPEG を選んでください。'); return; }
+  const url=URL.createObjectURL(file), img=new Image();
+  img.onload=()=>{ setSource(img); URL.revokeObjectURL(url); };
+  img.onerror=()=>{ startMsg('この画像は読み込めませんでした。PNG か JPEG で保存し直してから選んでください。'); URL.revokeObjectURL(url); };
+  img.src=url;
+}
+function setBusy(b, t){ $('#busy').hidden=!b; if (t) $('#busy div').textContent=t; }
+function setSource(src){
+  startMsg('');
+  S.src=src; S.srcW=src.naturalWidth||src.width; S.srcH=src.naturalHeight||src.height;
+  $('#start').hidden=true; $('#work').hidden=false;
+  setBusy(true,'画像を読み込んでいます…');
+  setTimeout(()=>{
+    try{
+      const max=720, sc=Math.min(1, max/Math.max(S.srcW,S.srcH));
+      S.W=Math.max(8,Math.round(S.srcW*sc)); S.H=Math.max(8,Math.round(S.srcH*sc));
+      const c=document.createElement('canvas'); c.width=S.W; c.height=S.H;
+      const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(S.src,0,0,S.W,S.H);
+      S.rgb=x.getImageData(0,0,S.W,S.H).data;
+      S.labS=Algo.bilateral(Algo.toLab(S.rgb, S.W*S.H), S.W, S.H, 2);
+      applyQuant();
+      buildPartsNow();
+      S.N=2; S.colorSeq=0; S.user=[null,null,new Uint8Array(S.W*S.H)]; S.lcol=[null,null,newColor()];
+      S.undo=[]; S.sel=2; S.last=null;
+      V.s=1; V.x=0; V.y=0; buildChips(); sizeEditor(); clampView(); rebuild(); updateLimitUI();
+    }catch(e){ console.error(e); $('#edHint').textContent='画像の読み込み中にエラーが起きました（'+e.message+'）。別の画像で試してください。'; }
+    setBusy(false);
+  },40);
+}
+
+function makeSample(){
+  const c=document.createElement('canvas'); c.width=630; c.height=880;
+  const x=c.getContext('2d');
+  const rr=(X,Y,w,h,r)=>{x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+w,Y,X+w,Y+h,r);x.arcTo(X+w,Y+h,X,Y+h,r);x.arcTo(X,Y+h,X,Y,r);x.arcTo(X,Y,X+w,Y,r);x.closePath();};
+  x.fillStyle='#E7BE45'; rr(0,0,630,880,34); x.fill();
+  x.fillStyle='#FFF4D2'; rr(22,22,586,836,20); x.fill();
+  x.fillStyle='#2B2B2B'; x.font='bold 40px sans-serif'; x.fillText('ソラモチ',44,78);
+  x.font='bold 30px sans-serif'; x.fillText('HP 70',470,76);
+  x.save(); rr(40,100,550,420,8); x.clip();
+  const g=x.createLinearGradient(0,100,0,520); g.addColorStop(0,'#6EC1EE'); g.addColorStop(1,'#DDF3FF');
+  x.fillStyle=g; x.fillRect(40,100,550,420);
+  x.fillStyle='#FFD34D'; x.beginPath(); x.arc(480,180,48,0,Math.PI*2); x.fill();
+  x.fillStyle='#6E9C78'; x.beginPath(); x.moveTo(40,420); x.lineTo(170,250); x.lineTo(300,420); x.fill();
+  x.fillStyle='#4F7F5C'; x.beginPath(); x.moveTo(200,420); x.lineTo(380,230); x.lineTo(590,420); x.fill();
+  x.fillStyle='#A9D46B'; x.beginPath(); x.ellipse(315,540,360,120,0,0,Math.PI*2); x.fill();
+  // 生きもの
+  x.fillStyle='#3E6CD3';
+  x.beginPath(); x.moveTo(230,300); x.lineTo(205,215); x.lineTo(275,275); x.fill();
+  x.beginPath(); x.moveTo(370,300); x.lineTo(400,215); x.lineTo(325,275); x.fill();
+  x.beginPath(); x.ellipse(305,375,118,100,0,0,Math.PI*2); x.fill();
+  x.fillStyle='#DCE7FF'; x.beginPath(); x.ellipse(305,410,68,55,0,0,Math.PI*2); x.fill();
+  x.fillStyle='#fff'; x.beginPath(); x.arc(265,345,20,0,7); x.arc(345,345,20,0,7); x.fill();
+  x.fillStyle='#1B1B1B'; x.beginPath(); x.arc(269,348,10,0,7); x.arc(341,348,10,0,7); x.fill();
+  x.fillStyle='#FF9BB3'; x.beginPath(); x.ellipse(235,385,16,10,0,0,7); x.ellipse(375,385,16,10,0,0,7); x.fill();
+  // きらきら
+  x.fillStyle='#FFF7A8';
+  const star=(cx,cy,r)=>{x.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4, rr2=i%2?r*0.35:r;x.lineTo(cx+Math.cos(a)*rr2,cy+Math.sin(a)*rr2);}x.fill();};
+  star(140,180,26); star(430,300,18); star(170,330,14);
+  x.restore();
+  x.strokeStyle='#C99F2E'; x.lineWidth=6; rr(40,100,550,420,8); x.stroke();
+  x.fillStyle='#8A7A55';
+  for (let i=0;i<4;i++){ x.fillRect(60,580+i*58, i===3?320:510, 18); }
+  return c;
+}
+
+
+// ---------- OpenCV.js（GrabCut） ----------
+let CV=null, cvState='loading';
+const cvWaiters=[];
+function updateCvBadge(){
+  const b=$('#cvBadge'); if (!b) return; b.dataset.state=cvState;
+  b.textContent = cvState==='ready' ? '高精度モード（OpenCV GrabCut）で吸着します'
+    : cvState==='failed' ? '高精度モードを読み込めなかったため、簡易モードで吸着します'
+    : '高精度モード（OpenCV）を準備しています…';
+}
+function settleCV(state){ cvState=state; updateCvBadge(); while (cvWaiters.length) cvWaiters.shift()(); }
+function waitCV(){ return cvState==='loading' ? new Promise(r=>cvWaiters.push(r)) : Promise.resolve(); }
+(function loadCV(){
+  const sc=document.createElement('script');
+  sc.src='https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.12.0-release.1/dist/opencv.js'; sc.async=true;
+  sc.onerror=()=>settleCV('failed');
+  sc.onload=()=>{ const t0=Date.now();
+    const poll=()=>{ const c=window.cv;
+      if (c && c.Mat && typeof c.grabCut==='function'){ CV=c; settleCV('ready'); }
+      else if (Date.now()-t0>90000) settleCV('failed');
+      else setTimeout(poll,150); };
+    poll(); };
+  document.head.appendChild(sc);
+})();
+function grabCutSelect(inside, allowed, fgM, bgM){
+  const W=S.W, H=S.H;
+  let x0=W,y0=H,x1=-1,y1=-1,area=0;
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) if (inside[y*W+x]||(fgM&&fgM[y*W+x])){ area++; if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+  if (area<40) return inside.slice();
+  const mg=Math.ceil(Math.max(12, Math.sqrt(area)*0.12));
+  x0=Math.max(0,x0-mg); y0=Math.max(0,y0-mg); x1=Math.min(W-1,x1+mg); y1=Math.min(H-1,y1+mg);
+  const cw=x1-x0+1, ch=y1-y0+1;
+  const px=S.prevC.getContext('2d').getImageData(x0,y0,cw,ch).data;
+  const img=new CV.Mat(ch,cw,CV.CV_8UC3), mask=new CV.Mat(ch,cw,CV.CV_8UC1);
+  const bgd=new CV.Mat(), fgd=new CV.Mat();
+  try{
+    let nb=0;
+    for (let y=0;y<ch;y++) for (let x=0;x<cw;x++){
+      const q=y*cw+x; img.data[q*3]=px[q*4]; img.data[q*3+1]=px[q*4+1]; img.data[q*3+2]=px[q*4+2];
+      const P=(y+y0)*W+x+x0, isIn=inside[P]&&(!allowed||allowed[P]); let v= isIn ? CV.GC_PR_FGD : CV.GC_BGD;
+      if (fgM && fgM[P] && (!allowed||allowed[P])) v=CV.GC_FGD; else if (bgM && bgM[P]) v=CV.GC_BGD;
+      mask.data[q]=v; if (v===CV.GC_BGD) nb++;
+    }
+    if (!nb){ for (let x=0;x<cw;x++){ mask.data[x]=CV.GC_BGD; mask.data[(ch-1)*cw+x]=CV.GC_BGD; } for (let y=0;y<ch;y++){ mask.data[y*cw]=CV.GC_BGD; mask.data[y*cw+cw-1]=CV.GC_BGD; } }
+    CV.grabCut(img,mask,new CV.Rect(0,0,1,1),bgd,fgd,5,CV.GC_INIT_WITH_MASK);
+    const sub=new Uint8Array(cw*ch);
+    for (let q=0;q<sub.length;q++){ const v=mask.data[q]; sub[q]=(v===CV.GC_FGD||v===CV.GC_PR_FGD)?1:0; }
+    const t=Algo.tidy(sub,cw,ch), out=new Uint8Array(W*H);
+    for (let y=0;y<ch;y++) for (let x=0;x<cw;x++) if (t[y*cw+x]) out[(y+y0)*W+x+x0]=1;
+    return out;
+  } finally { img.delete(); mask.delete(); bgd.delete(); fgd.delete(); }
+}
+updateCvBadge();
+
+// ---------- 読み取り用の画像（ならし＋減色） ----------
+function applyQuant(){
+  const n=S.W*S.H;
+  const c=document.createElement('canvas'); c.width=S.W; c.height=S.H;
+  const o=c.getContext('2d',{willReadFrequently:true}), id=o.createImageData(S.W,S.H);
+  if (S.qK>0){
+    const q=Algo.quantize(S.labS,n,S.qK); S.lab=q.lab;
+    const sum=new Float64Array(q.K*3), cnt=new Float64Array(q.K);
+    for (let p=0;p<n;p++){ const k=q.idx[p]; sum[k*3]+=S.rgb[p*4]; sum[k*3+1]+=S.rgb[p*4+1]; sum[k*3+2]+=S.rgb[p*4+2]; cnt[k]++; }
+    for (let p=0;p<n;p++){ const k=q.idx[p], c2=cnt[k]||1; id.data[p*4]=sum[k*3]/c2; id.data[p*4+1]=sum[k*3+1]/c2; id.data[p*4+2]=sum[k*3+2]/c2; id.data[p*4+3]=255; }
+  } else {
+    S.lab=S.labS;
+    for (let p=0;p<n*4;p++) id.data[p]=S.rgb[p];
+  }
+  o.putImageData(id,0,0); S.prevC=c;
+}
+let quantT=0;
+$('#qColors').addEventListener('input',e=>{
+  S.qK=+e.target.value; $('#qColorsOut').textContent=S.qK?S.qK+'色':'減色なし';
+  clearTimeout(quantT); quantT=setTimeout(()=>{ if (!S.W) return; setBusy(true,'読み取り用の画像を作り直しています…');
+    setTimeout(()=>{ applyQuant(); if (S.showQuant) drawEditor(); setBusy(false); },30); },200);
+});
+$('#pieceOnly').addEventListener('change',e=>{ S.pieceOnly=e.target.checked; drawEditor(); });
+$('#showQuant').addEventListener('change',e=>{ S.showQuant=e.target.checked; drawEditor(); });
+
+// ---------- パーツ分解 ----------
+let hoverId=-1;
+const hoverC=document.createElement('canvas');
+function buildPartsNow(){
+  S.parts=Algo.buildParts(S.labS,S.W,S.H,S.detail);
+  const P=S.parts, W=S.W, H=S.H, c=document.createElement('canvas'); c.width=W; c.height=H;
+  const o=c.getContext('2d'), id=o.createImageData(W,H);
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const p=y*W+x, a=P.id[p]; if (a<0) continue;
+    let edge=false;
+    if (x<W-1){ const b=P.id[p+1]; if (b>=0&&b!==a) edge=true; }
+    if (y<H-1){ const b=P.id[p+W]; if (b>=0&&b!==a) edge=true; }
+    if (x>0){ const b=P.id[p-1]; if (b>=0&&b!==a) edge=true; }
+    if (y>0){ const b=P.id[p-W]; if (b>=0&&b!==a) edge=true; }
+    if (edge){ id.data[p*4]=255; id.data[p*4+1]=255; id.data[p*4+2]=255; id.data[p*4+3]=215; } }
+  o.putImageData(id,0,0); S.edgeC=c; hoverId=-1;
+  hoverC.width=W; hoverC.height=H;
+}
+function partAt(p){
+  const P=S.parts; if (!P) return -1;
+  const x=Math.min(S.W-1,Math.max(0,Math.floor(p.x/edCW*S.W))), y=Math.min(S.H-1,Math.max(0,Math.floor(p.y/edCH*S.H)));
+  let id=P.id[y*S.W+x]; if (id>=0) return id;
+  let best=-1, bd=1e9;
+  for (let dy=-12;dy<=12;dy++) for (let dx=-12;dx<=12;dx++){ const xx=x+dx, yy=y+dy; if (xx<0||yy<0||xx>=S.W||yy>=S.H) continue;
+    const i=P.id[yy*S.W+xx]; const d=dx*dx+dy*dy; if (i>=0 && d<bd){ bd=d; best=i; } }
+  return best;
+}
+function setHover(id){
+  if (id===hoverId) return;
+  const P=S.parts, o=hoverC.getContext('2d');
+  o.clearRect(0,0,S.W,S.H); hoverId=id;
+  if (id>=0){ const img=o.createImageData(S.W,S.H), [r,g,b]=hexRgb(colorOf(S.sel)), W=S.W, H=S.H;
+    // ふんわり明るく＋層の色でふちどり
+    for (let i=P.start[id];i<P.start[id+1];i++){ const p=P.list[i], q=p*4, x=p%W, y=(p-x)/W;
+      const edge = x===0||y===0||x===W-1||y===H-1 || P.id[p-1]!==id || P.id[p+1]!==id || P.id[p-W]!==id || P.id[p+W]!==id;
+      if (edge){ img.data[q]=r; img.data[q+1]=g; img.data[q+2]=b; img.data[q+3]=255; }
+      else { img.data[q]=255; img.data[q+1]=255; img.data[q+2]=255; img.data[q+3]=60; } }
+    o.putImageData(img,0,0); }
+  scheduleBlit();
+}
+function partSelected(id){
+  const P=S.parts, m=S.masks[S.sel]; let c=0;
+  for (let i=P.start[id];i<P.start[id+1];i++) c+=m[P.list[i]];
+  return c > P.size[id]*0.5;
+}
+// パーツの画素＋まわりの線画（線はパーツと一緒に切り抜く）
+function partsRegion(ids, add){
+  const P=S.parts, W=S.W, H=S.H, n=W*H, region=new Uint8Array(n), R=Math.max(2,Math.round(Math.max(W,H)/180));
+  for (const id of ids) for (let i=P.start[id];i<P.start[id+1];i++) region[P.list[i]]=1;
+  const cand=[];
+  for (const id of ids) for (let i=P.start[id];i<P.start[id+1];i++){ const p=P.list[i], x=p%W, y=(p-x)/W;
+    for (let dy=-R;dy<=R;dy++){ const yy=y+dy; if (yy<0||yy>=H) continue;
+      for (let dx=-R;dx<=R;dx++){ const xx=x+dx; if (xx<0||xx>=W) continue; const q=yy*W+xx;
+        if (P.line[q] && !region[q]){ region[q]=2; cand.push(q); } } } }
+  if (add){ for (const q of cand) region[q]=1; return region; }
+  // 外す時：ほかに選ばれているパーツに接している線は残す
+  const u=S.user[S.sel];
+  for (const q of cand){ const x=q%W, y=(q-x)/W; let keep=false;
+    for (let dy=-R;dy<=R&&!keep;dy++){ const yy=y+dy; if (yy<0||yy>=H) continue;
+      for (let dx=-R;dx<=R;dx++){ const xx=x+dx; if (xx<0||xx>=W) continue; const r=yy*W+xx;
+        if (u[r] && !P.line[r] && region[r]!==1){ keep=true; break; } } }
+    region[q]= keep?0:1; }
+  return region;
+}
+let detailT=0;
+$('#detail').addEventListener('input',e=>{
+  S.detail=+e.target.value; $('#detailOut').textContent=S.detail;
+  clearTimeout(detailT); detailT=setTimeout(()=>{ if (!S.W) return; setBusy(true,'パーツに分けています…');
+    setTimeout(()=>{ try{ buildPartsNow(); drawEditor(); }catch(err){ console.error(err); } setBusy(false); },30); },200);
+});
+$('#showEdges').addEventListener('change',e=>{ S.showEdges=e.target.checked; drawEditor(); });
+
+// ---------- 層の計算 ----------
+function computeMasks(){
+  const n=S.W*S.H;
+  S.masks=[null, new Uint8Array(n).fill(1)];
+  for (let k=2;k<=S.N;k++){
+    const m=Algo.smoothMask(S.user[k],S.W,S.H,Math.round(S.smooth*Math.max(S.W,S.H)/600));
+    const lo=S.masks[k-1]; for (let p=0;p<n;p++) m[p]&=lo[p];
+    S.masks[k]=m;
+  }
+}
+function rebuild(){
+  if (typeof rafId!=='undefined') cancelAnimationFrame(rafId);
+  computeMasks();
+  S.loops=[null,null]; S.stats=[null,{pieces:1,small:false,pct:100}];
+  for (let k=2;k<=S.N;k++){
+    S.loops[k]=Algo.traceLoops(S.masks[k],S.W,S.H);
+    S.stats[k]=Algo.pieceStats(S.masks[k],S.W,S.H);
+  }
+  drawEditor();
+  updateSummary();
+  S.dirty3d=true; S.dirtyGuide=true;
+  if (S.tab==='guide') renderGuide();
+  if (S.tab==='3d') show3D();
+  $('#undo').disabled=!S.undo.length;
+  updateLimitUI();
+}
+function updateSummary(){
+  const done=S.stats.filter((s,k)=>k>=2&&s&&s.pieces>0).length;
+  $('#summary').innerHTML='<b>'+(S.N-1)+'層＋台紙</b>　同じ絵が<b>'+S.N+'枚</b>必要です（範囲を決めた層：'+done+'／'+(S.N-1)+'）。';
+  $('#delLayer').disabled=S.N<=2; $('#addBehind').disabled=$('#addFront').disabled=S.N>=MAXL;
+  const k=S.sel, sameAsFront = k<S.N && S.stats[k] && S.stats[k+1] && Math.abs(S.stats[k].pct-S.stats[k+1].pct)<0.05,
+    empty=!S.stats[k]||S.stats[k].pieces===0||sameAsFront;
+  let t;
+  if (S.tool==='parts') t = empty
+    ? (k===S.N ? 'まず、いちばん手前に飛び出させたいパーツ（顔・武器・エフェクトなど）をタップしてください。指でなぞると、まとめて選べます。'
+               : 'この層には、手前の層で選んだ部分がすでに入っています。その後ろに来るパーツ（体・マントなど）をタップして足してください。')
+    : 'タップで追加、選ばれているパーツをもう一度タップすると外れます。この層が決まったら「＋ 奥に層を追加」で、その後ろの層へ進みましょう。';
+  else if (S.tool==='lassoAdd') t = empty
+    ? (k===S.N ? 'いちばん手前に飛び出させたい部分を、指やマウスでぐるっと囲んでください。囲んだ中から輪郭に吸着して選ばれます。'
+               : 'この層には手前の層の部分がすでに入っています。その後ろに来る部分を囲んで足してください。')
+    : '足りない部分をさらに囲むと追加されます。余分な部分は「囲んで削除」で消せます。';
+  else if (S.tool==='lassoRem') t='消したい部分（はみ出した背景や、腕と体のすき間など）を囲んでください。この層より手前の層からも消えます。';
+  else if (S.refine && S.last && S.last.k===k) t = S.tool==='brushAdd'
+    ? 'パーツに入れたいのに漏れた部分を少しなぞってください。その色を手がかりに、直前の囲みを計算し直します。'
+    : '入ってしまった背景を少しなぞってください。その色を手がかりに、直前の囲みを計算し直します。';
+  else if (S.tool==='brushAdd') t='なぞった部分をそのまま追加します。細かい修正向けです。奥の層にも自動で追加されます。';
+  else t='なぞった部分をそのまま削除します。この層より手前の層からも消えます。';
+  $('#edHint').textContent=t;
+}
+
+// ---------- 設定 ----------
+const bindRange=(id,out,fn)=>{ const el=$(id); el.addEventListener('input',()=>{ $(out).textContent=el.value; fn(+el.value); }); };
+// 層の追加・削除（手前から順に作っていく）
+$('#addBehind').addEventListener('click',()=>{
+  if (!S.W || S.N>=MAXL) return; pushUndo(); S.last=null;
+  // いちばん奥に新しい層を差し込む。手前の層を支えるため、今のいちばん奥の層の内容を引き継ぐ
+  S.user.splice(2,0,S.user[2].slice()); S.lcol.splice(2,0,newColor()); S.N++; S.sel=2;
+  buildChips(); rebuild();
+});
+$('#addFront').addEventListener('click',()=>{
+  if (!S.W || S.N>=MAXL) return; pushUndo(); S.last=null;
+  S.user.splice(S.N+1,0,new Uint8Array(S.W*S.H)); S.lcol.splice(S.N+1,0,newColor()); S.N++; S.sel=S.N;
+  buildChips(); rebuild();
+});
+$('#delLayer').addEventListener('click',()=>{
+  if (!S.W || S.N<=2) return; pushUndo(); S.last=null;
+  S.user.splice(S.sel,1); S.lcol.splice(S.sel,1); S.N--; S.sel=Math.max(2,Math.min(S.sel,S.N));
+  buildChips(); rebuild();
+});
+let smoothT=0;
+bindRange('#smooth','#smoothOut',v=>{ S.smooth=v; clearTimeout(smoothT); smoothT=setTimeout(()=>{ if (S.W) rebuild(); },120); });
+bindRange('#brush','#brushOut',v=>S.brush=v);
+$('#snap').addEventListener('change',e=>S.snap=e.target.checked);
+$('#limit').addEventListener('change',e=>S.limit=e.target.checked);
+$('#refine').addEventListener('change',e=>{ S.refine=e.target.checked; updateSummary(); });
+function updateLimitUI(){ $('#limitWrap').hidden=!(S.tool==='lassoAdd' && S.sel>=3);
+  $('#refineWrap').hidden=!(S.tool.startsWith('brush') && S.last && S.last.k===S.sel); }
+document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>{
+  S.tool=b.dataset.tool;
+  document.querySelectorAll('[data-tool]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+  const lasso=S.tool.startsWith('lasso'), parts=S.tool==='parts';
+  $('#snapWrap').hidden=!lasso; $('#cvBadge').hidden=!lasso; $('#brushField').hidden=!S.tool.startsWith('brush');
+  $('#detailField').hidden=!parts; $('#edgesWrap').hidden=!parts; setHover(-1); updateLimitUI(); drawEditor();
+  updateSummary();
+}));
+
+function buildChips(){
+  const box=$('#chips'); box.innerHTML='';
+  for (let k=S.N;k>=2;k--){
+    const b=document.createElement('button'); b.className='chip';
+    b.setAttribute('aria-pressed', String(k===S.sel));
+    b.innerHTML='<i style="background:'+colorOf(k)+'"></i>'+layerName(k);
+    b.addEventListener('click',()=>{ S.sel=k; setHover(-1); buildChips(); drawEditor(); updateSummary(); updateLimitUI(); });
+    box.appendChild(b);
+  }
+}
+function pushUndo(){
+  S.undo.push({user:S.user.map(a=>a&&a.slice()), lcol:S.lcol.slice(), N:S.N, sel:S.sel});
+  if (S.undo.length>15) S.undo.shift();
+  $('#undo').disabled=false;
+}
+$('#undo').addEventListener('click',()=>{ const u=S.undo.pop(); if(!u) return; S.user=u.user; S.lcol=u.lcol; S.N=u.N; S.sel=Math.min(u.sel,u.N); S.last=null;
+  buildChips(); rebuild(); });
+$('#clearLayer').addEventListener('click',()=>{ if(!S.user[S.sel]) return; pushUndo(); S.last=null; updateLimitUI();
+  // 手前の層の分は残して、この層で足した分だけを消す
+  const k=S.sel; if (k<S.N) S.user[k]=S.user[k+1].slice(); else S.user[k].fill(0); rebuild(); });
+
+// 範囲の追加・削除（下の層・上の層との包含関係を保つ）
+function applyRegion(region, add){
+  const n=S.W*S.H, k=S.sel;
+  if (add){ for (let j=2;j<=k;j++){ const u=S.user[j]; for (let p=0;p<n;p++) if (region[p]) u[p]=1; } }
+  else { for (let j=k;j<=S.N;j++){ const u=S.user[j]; for (let p=0;p<n;p++) if (region[p]) u[p]=0; } }
+}
+
+// ---------- 編集キャンバス ----------
+const ed=$('#ed'), edWrap=$('#edWrap'), ovl=document.createElement('canvas'), cache=document.createElement('canvas');
+let edCW=0, edCH=0, dpr=1, drawing=false, path=[], brushPos=null, lastPt=null, rafId=0, strokeRegion=null;
+function sizeEditor(){
+  if (!S.W) return;
+  const maxW=edWrap.clientWidth-16, maxH=Math.max(280, window.innerHeight*0.7);
+  let w=maxW, h=w*S.H/S.W; if (h>maxH){ h=maxH; w=h*S.W/S.H; }
+  edCW=w; edCH=h; dpr=Math.min(2, window.devicePixelRatio||1);
+  ed.width=cache.width=Math.round(w*dpr); ed.height=cache.height=Math.round(h*dpr);
+  ed.style.width=w+'px'; ed.style.height=h+'px';
+}
+const pat=document.createElement('canvas'); pat.width=pat.height=10;
+{ const x=pat.getContext('2d'); x.fillStyle='rgba(247,247,242,.88)'; x.fillRect(0,0,10,10);
+  x.strokeStyle='rgba(105,115,110,.65)'; x.lineWidth=1.2; x.beginPath();
+  x.moveTo(-1,11); x.lineTo(11,-1); x.moveTo(-1,1); x.lineTo(1,-1); x.moveTo(9,11); x.lineTo(11,9); x.stroke(); }
+const maskC=document.createElement('canvas'), layerC=document.createElement('canvas');
+function maskCanvas(m){
+  maskC.width=S.W; maskC.height=S.H; const o=maskC.getContext('2d'), id=o.createImageData(S.W,S.H);
+  for (let p=0;p<m.length;p++) if (m[p]) id.data[p*4+3]=255;
+  o.putImageData(id,0,0); return maskC;
+}
+function pathLoops(ctx, loops, sx, sy){
+  ctx.beginPath(); addLoops(ctx, loops, sx, sy);
+}
+function addLoops(ctx, loops, sx, sy){
+  for (const L of loops||[]){
+    ctx.moveTo(L[0]*sx, L[1]*sy);
+    for (let i=2;i<L.length;i+=2) ctx.lineTo(L[i]*sx, L[i+1]*sy);
+    ctx.closePath();
+  }
+}
+// 表示の拡大・移動（V.s=倍率、V.x/V.y=ずらし量。単位は画面上のピクセル）
+const V={s:1,x:0,y:0};
+function clampView(){
+  V.s=Math.max(1,Math.min(8,V.s));
+  V.x=Math.min(0,Math.max(edCW-edCW*V.s,V.x)); V.y=Math.min(0,Math.max(edCH-edCH*V.s,V.y));
+  const z=$('#zoomOut'); if (z) z.textContent=Math.round(V.s*100)+'%';
+}
+function zoomAt(sx, sy, ns){
+  const ix=(sx-V.x)/V.s, iy=(sy-V.y)/V.s; V.s=Math.max(1,Math.min(8,ns));
+  V.x=sx-ix*V.s; V.y=sy-iy*V.s; clampView(); drawEditor();
+}
+function viewTf(ctx){ ctx.setTransform(dpr*V.s,0,0,dpr*V.s,dpr*V.x,dpr*V.y); }
+function drawEditor(live){
+  if (!S.masks.length || !edCW) return;
+  const ctx=cache.getContext('2d'); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cache.width,cache.height);
+  viewTf(ctx); ctx.imageSmoothingEnabled=V.s<3;
+  const base=S.showQuant&&S.prevC ? S.prevC : S.src, k=S.sel, m=live||S.masks[k], mc=maskCanvas(m);
+  layerC.width=cache.width; layerC.height=cache.height;
+  const lc=layerC.getContext('2d'); viewTf(lc); lc.imageSmoothingEnabled=V.s<3;
+  if (S.pieceOnly){
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#E4E7E0'; ctx.fillRect(0,0,cache.width,cache.height); ctx.restore();
+    lc.drawImage(base,0,0,edCW,edCH); lc.globalCompositeOperation='destination-in'; lc.imageSmoothingEnabled=true; lc.drawImage(mc,0,0,edCW,edCH);
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.shadowColor='rgba(0,0,0,.4)'; ctx.shadowBlur=10*dpr; ctx.shadowOffsetX=3*dpr; ctx.shadowOffsetY=4*dpr;
+    ctx.drawImage(layerC,0,0); ctx.restore();
+  } else {
+    ctx.drawImage(base,0,0,edCW,edCH);
+    lc.save(); lc.setTransform(1,0,0,1,0,0); lc.fillStyle=lc.createPattern(pat,'repeat'); lc.fillRect(0,0,layerC.width,layerC.height); lc.restore();
+    lc.globalCompositeOperation='destination-out'; lc.imageSmoothingEnabled=true; lc.drawImage(mc,0,0,edCW,edCH);
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(layerC,0,0); ctx.restore();
+  }
+  if (S.tool==='parts' && S.showEdges && S.edgeC && !S.pieceOnly){ ctx.save(); ctx.imageSmoothingEnabled=false; ctx.globalAlpha=.9; ctx.drawImage(S.edgeC,0,0,edCW,edCH); ctx.restore(); }
+  if (!live){
+    const sx=edCW/S.W, sy=edCH/S.H, u=1/V.s;
+    if (k>2 && !S.pieceOnly){ ctx.save(); ctx.setLineDash([4*u,4*u]); ctx.strokeStyle='rgba(40,50,46,.7)'; ctx.lineWidth=u; pathLoops(ctx,S.loops[k-1],sx,sy); ctx.stroke(); ctx.restore(); }
+    ctx.lineJoin='round'; ctx.strokeStyle='rgba(255,255,255,.95)'; ctx.lineWidth=4*u; pathLoops(ctx,S.loops[k],sx,sy); ctx.stroke();
+    ctx.strokeStyle='#E0402B'; ctx.lineWidth=2*u; ctx.stroke();
+  }
+  blit();
+}
+function blit(){
+  const ctx=ed.getContext('2d'); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,ed.width,ed.height);
+  ctx.drawImage(cache,0,0);
+  if (S.tool==='parts' && hoverId>=0 && !drawing){ viewTf(ctx); ctx.imageSmoothingEnabled=false; ctx.drawImage(hoverC,0,0,edCW,edCH); ctx.setTransform(1,0,0,1,0,0); }
+  if (drawing && path.length>1 && S.tool.startsWith('lasso')){
+    viewTf(ctx); const u=1/V.s;
+    ctx.beginPath(); ctx.moveTo(path[0].x,path[0].y); for (const p of path) ctx.lineTo(p.x,p.y);
+    ctx.closePath(); ctx.fillStyle=S.tool==='lassoAdd'?'rgba(255,255,255,.15)':'rgba(224,64,43,.18)'; ctx.fill();
+    ctx.lineWidth=3*u; ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.stroke();
+    ctx.setLineDash([6*u,5*u]); ctx.lineWidth=2*u; ctx.strokeStyle=S.tool==='lassoAdd'?'#fff':'#FFB4A8'; ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (brushPos && S.tool.startsWith('brush') && !gesture){
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.beginPath(); ctx.arc(brushPos.sx,brushPos.sy,S.brush/2,0,Math.PI*2);
+    ctx.strokeStyle=S.tool==='brushAdd'?'#fff':'#FFB4A8'; ctx.lineWidth=1.5; ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+function scheduleBlit(){ cancelAnimationFrame(rafId); rafId=requestAnimationFrame(blit); }
+// 画面上の位置 → 拡大前の表示座標（0..edCW, 0..edCH）
+function evPos(e){
+  const r=ed.getBoundingClientRect(), sx=e.clientX-r.left, sy=e.clientY-r.top;
+  return {x:Math.max(0,Math.min(edCW,(sx-V.x)/V.s)), y:Math.max(0,Math.min(edCH,(sy-V.y)/V.s)), sx, sy};
+}
+
+function stamp(region, px, py){
+  const W=S.W, H=S.H, cx=px/edCW*W, cy=py/edCH*H, rad=Math.max(0.6,S.brush/2/V.s/edCW*W), r2=rad*rad;
+  const x0=Math.max(0,Math.floor(cx-rad)), x1=Math.min(W-1,Math.ceil(cx+rad));
+  const y0=Math.max(0,Math.floor(cy-rad)), y1=Math.min(H-1,Math.ceil(cy+rad));
+  for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++){ const dx=x+0.5-cx, dy=y+0.5-cy; if (dx*dx+dy*dy<=r2) region[y*W+x]=1; }
+}
+function brushTo(p){
+  if (lastPt){ const d=Math.hypot(p.x-lastPt.x,p.y-lastPt.y), st=Math.max(1,Math.ceil(d/(S.brush/4/V.s)));
+    for (let i=1;i<=st;i++) stamp(strokeRegion, lastPt.x+(p.x-lastPt.x)*i/st, lastPt.y+(p.y-lastPt.y)*i/st); }
+  else stamp(strokeRegion,p.x,p.y);
+  lastPt=p;
+  // 作業中の見た目：現在の層に今のストロークを重ねて表示
+  const m=S.masks[S.sel].slice(), add=S.tool==='brushAdd';
+  for (let i=0;i<m.length;i++) if (strokeRegion[i]) m[i]=add?1:0;
+  cancelAnimationFrame(rafId); rafId=requestAnimationFrame(()=>drawEditor(m));
+}
+// 1本指（マウス）＝描く、2本指＝拡大・移動
+const ptrs=new Map(); let gesture=null, blockDraw=false, partStroke=null;
+function previewParts(){
+  const P=S.parts, m=S.masks[S.sel].slice(), v=partStroke.add?1:0;
+  for (const id of partStroke.ids) for (let i=P.start[id];i<P.start[id+1];i++) m[P.list[i]]=v;
+  cancelAnimationFrame(rafId); rafId=requestAnimationFrame(()=>drawEditor(m));
+}
+function cancelDraw(){ if (!drawing) return; drawing=false; path=[]; strokeRegion=null; lastPt=null; partStroke=null; drawEditor(); }
+ed.addEventListener('pointerdown',e=>{
+  if (!S.masks.length) return; e.preventDefault(); ed.setPointerCapture(e.pointerId);
+  const p=evPos(e); ptrs.set(e.pointerId,p);
+  if (ptrs.size===2){
+    cancelDraw(); const [a,b]=[...ptrs.values()];
+    gesture={d0:Math.hypot(a.sx-b.sx,a.sy-b.sy)||1, mx:(a.sx+b.sx)/2, my:(a.sy+b.sy)/2, s0:V.s, x0:V.x, y0:V.y};
+    blockDraw=true; return;
+  }
+  if (ptrs.size>2 || blockDraw) return;
+  drawing=true; brushPos=p;
+  if (S.tool==='parts'){ const id=partAt(p); partStroke={ids:new Set(), add:true, last:p};
+    if (id>=0){ partStroke.add=!partSelected(id); partStroke.ids.add(id); } previewParts(); return; }
+  if (S.tool.startsWith('lasso')){ path=[p]; scheduleBlit(); }
+  else { strokeRegion=new Uint8Array(S.W*S.H); lastPt=null; brushTo(p); }
+});
+ed.addEventListener('pointermove',e=>{
+  const p=evPos(e); if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId,p);
+  if (gesture && ptrs.size>=2){
+    const [a,b]=[...ptrs.values()], d=Math.hypot(a.sx-b.sx,a.sy-b.sy)||1, mx=(a.sx+b.sx)/2, my=(a.sy+b.sy)/2;
+    const ns=Math.max(1,Math.min(8,gesture.s0*d/gesture.d0));
+    const ix=(gesture.mx-gesture.x0)/gesture.s0, iy=(gesture.my-gesture.y0)/gesture.s0;
+    V.s=ns; V.x=mx-ix*ns; V.y=my-iy*ns; clampView(); drawEditor(); return;
+  }
+  brushPos=p;
+  if (!drawing){ if (S.tool.startsWith('brush')) scheduleBlit(); else if (S.tool==='parts' && e.pointerType==='mouse') setHover(partAt(p)); return; }
+  if (S.tool==='parts' && partStroke){
+    const l=partStroke.last, d=Math.hypot(p.x-l.x,p.y-l.y), st=Math.max(1,Math.ceil(d*V.s/3)); let added=false;
+    for (let i=1;i<=st;i++){ const id=partAt({x:l.x+(p.x-l.x)*i/st, y:l.y+(p.y-l.y)*i/st}); if (id>=0 && !partStroke.ids.has(id)){
+      if (!partStroke.ids.size) partStroke.add=!partSelected(id); partStroke.ids.add(id); added=true; } }
+    partStroke.last=p; if (added) previewParts(); return;
+  }
+  if (S.tool.startsWith('lasso')){ const l=path[path.length-1]; if (Math.hypot(p.x-l.x,p.y-l.y)>=2/V.s){ path.push(p); scheduleBlit(); } }
+  else brushTo(p);
+});
+function pointerEnd(e){
+  ptrs.delete(e.pointerId);
+  if (gesture){ if (ptrs.size<2) gesture=null; if (!ptrs.size) blockDraw=false; return; }
+  if (!ptrs.size) blockDraw=false;
+  finish();
+}
+ed.addEventListener('wheel',e=>{
+  if (!S.masks.length) return;
+  const r=ed.getBoundingClientRect(), sx=e.clientX-r.left, sy=e.clientY-r.top;
+  if (e.ctrlKey||e.metaKey){ e.preventDefault(); zoomAt(sx,sy,V.s*Math.exp(-e.deltaY*0.004)); }
+  else if (V.s>1){ e.preventDefault(); V.x-=e.deltaX; V.y-=e.deltaY; clampView(); drawEditor(); }
+},{passive:false});
+$('#zoomIn').addEventListener('click',()=>zoomAt(edCW/2,edCH/2,V.s*1.5));
+$('#zoomOutBtn').addEventListener('click',()=>zoomAt(edCW/2,edCH/2,V.s/1.5));
+$('#zoomFit').addEventListener('click',()=>{ V.s=1; V.x=0; V.y=0; clampView(); drawEditor(); });
+
+// 吸着処理の本体（囲んだ範囲＋なぞった手がかりから、パーツの範囲を求める）
+function runSnap(inside, add, fgM, bgM){
+  const n=inside.length;
+  let allowed=null;
+  if (add && S.limit && S.sel>=3) allowed=S.masks[2];
+  if (!add) allowed=S.masks[S.sel];
+  if (allowed){ let c=0; for (let p=0;p<n;p++) if (inside[p]&&allowed[p]) c++; if (c<40) allowed=null; }
+  let region;
+  try{ region = CV ? grabCutSelect(inside, allowed, fgM, bgM) : Algo.snapCrop(S.lab,S.W,S.H,inside); }
+  catch(err){ console.error(err); region = Algo.snapCrop(S.lab,S.W,S.H,inside); }
+  if (allowed){
+    let rc=0, cc=0;
+    for (let p=0;p<n;p++){ region[p]&=allowed[p]; rc+=region[p]; cc+=inside[p]&allowed[p]; }
+    // 細い部分などで吸着が効かなかった時は「囲んだ範囲 ∩ 下の層」をそのまま使う
+    if (rc<cc*0.25 && !fgM) for (let p=0;p<n;p++) region[p]=inside[p]&allowed[p];
+  }
+  if (fgM) for (let p=0;p<n;p++){ if (fgM[p] && (!allowed||allowed[p])) region[p]=1; if (bgM[p]) region[p]=0; }
+  let rc=0; for (let p=0;p<n;p++) rc+=region[p];
+  return rc ? region : (fgM ? region : inside.slice());
+}
+function withBusy(fn){
+  setBusy(true, cvState==='loading' ? '高精度モード（OpenCV）を準備しています…' : '輪郭を探しています…');
+  waitCV().then(()=>{ setBusy(true,'輪郭を探しています…'); return new Promise(r=>setTimeout(r,30)); })
+    .then(()=>{ try{ fn(); }catch(err){ console.error(err); } setBusy(false); });
+}
+function finish(){
+  if (!drawing) return; drawing=false;
+  if (S.tool==='parts'){
+    const st=partStroke; partStroke=null;
+    if (!st || !st.ids.size){ drawEditor(); return; }
+    pushUndo(); S.last=null;
+    applyRegion(partsRegion([...st.ids], st.add), st.add); rebuild(); return;
+  }
+  if (S.tool.startsWith('lasso')){
+    const pts=path; path=[];
+    if (pts.length<3){ blit(); return; }
+    const c=document.createElement('canvas'); c.width=S.W; c.height=S.H;
+    const x=c.getContext('2d',{willReadFrequently:true}); x.fillStyle='#000'; x.beginPath();
+    pts.forEach((p,i)=>{ const X=p.x/edCW*S.W, Y=p.y/edCH*S.H; i?x.lineTo(X,Y):x.moveTo(X,Y); }); x.closePath(); x.fill();
+    const a=x.getImageData(0,0,S.W,S.H).data, inside=new Uint8Array(S.W*S.H); let cnt=0;
+    for (let p=0;p<inside.length;p++){ inside[p]=a[p*4+3]>127?1:0; cnt+=inside[p]; }
+    if (cnt<6){ blit(); return; }
+    const add=S.tool==='lassoAdd';
+    if (S.snap){
+      withBusy(()=>{
+        const before=S.user.map(u=>u&&u.slice());
+        const region=runSnap(inside, add, null, null);
+        pushUndo(); applyRegion(region, add);
+        S.last={k:S.sel, add, inside, fgM:new Uint8Array(inside.length), bgM:new Uint8Array(inside.length), before};
+        rebuild(); updateSummary();
+      });
+    } else { S.last=null; pushUndo(); applyRegion(inside, add); rebuild(); }
+  } else {
+    const region=strokeRegion, brushAdd=S.tool==='brushAdd'; strokeRegion=null; lastPt=null;
+    const L=S.last;
+    if (S.refine && L && L.k===S.sel){
+      // 直前の囲みを、なぞった部分を手がかりに再計算する
+      const toFg = L.add ? brushAdd : !brushAdd;
+      for (let p=0;p<region.length;p++) if (region[p]){ if (toFg){ L.fgM[p]=1; L.bgM[p]=0; } else { L.bgM[p]=1; L.fgM[p]=0; } }
+      withBusy(()=>{
+        pushUndo();
+        S.user=L.before.map(u=>u&&u.slice());
+        const reg=runSnap(L.inside, L.add, L.fgM, L.bgM);
+        applyRegion(reg, L.add); rebuild();
+      });
+    } else { pushUndo(); applyRegion(region, brushAdd); rebuild(); }
+  }
+}
+ed.addEventListener('pointerup',pointerEnd); ed.addEventListener('pointercancel',pointerEnd);
+ed.addEventListener('pointerleave',()=>{ if(!drawing){ brushPos=null; setHover(-1); scheduleBlit(); } });
+window.addEventListener('resize',()=>{ sizeEditor(); clampView(); drawEditor(); });
+
+// ---------- タブ ----------
+const tabs={edit:$('#t-edit'),guide:$('#t-guide'),'3d':$('#t-3d')};
+Object.entries(tabs).forEach(([name,btn])=>btn.addEventListener('click',()=>{
+  S.tab=name;
+  for (const [n,b] of Object.entries(tabs)){ b.setAttribute('aria-selected',String(n===name)); $('#tab-'+n).hidden=n!==name; }
+  if (name==='edit'){ sizeEditor(); drawEditor(); }
+  if (name==='guide') renderGuide();
+  if (name==='3d') show3D();
+}));
+
+// ---------- 切り出しガイド ----------
+function bondHeight(k){ if (k===2) return '2'; if (k===S.N) return '1'; return '1.5'; }
+function layerLines(k){
+  if (k===1) return ['切らずに、そのまま額のいちばん奥に貼ります。','位置合わせの基準になるので、まっすぐ貼るのがコツです。'];
+  const st=S.stats[k];
+  if (!st.pieces) return ['この層はまだ範囲が決まっていません。「層を編集」で手前に出したい部分を囲むか、層の数を減らしてください。'];
+  const L=['赤い線に沿って切り抜きます（パーツ'+st.pieces+'個／絵全体の約'+Math.round(st.pct)+'%）。',
+    (k-1)+'枚目の同じ位置に重なるよう、シリコンボンドで約'+bondHeight(k)+'mm浮かせて貼ります。'];
+  if (st.small) L.push('細かいパーツがあります。デザインナイフとピンセットを使うと安全です。');
+  if (st.pct>20) L.push('大きいパーツは、指で軽くカーブをつけると立体感が出ます。');
+  if (k===S.N) L.push('いちばん手前の層です。切り口の白い断面をペンで塗ると仕上がりがきれいです。');
+  return L;
+}
+function drawGuide(c, k, w){
+  const h=Math.round(w*S.H/S.W); c.width=w; c.height=h;
+  const ctx=c.getContext('2d'); ctx.imageSmoothingEnabled=true;
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h);
+  ctx.drawImage(S.src,0,0,w,h);
+  if (k>1){
+    const sx=w/S.W, sy=h/S.H;
+    ctx.save(); ctx.beginPath(); ctx.rect(0,0,w,h); addLoops(ctx,S.loops[k],sx,sy); ctx.clip('evenodd');
+    ctx.fillStyle=ctx.createPattern(pat,'repeat'); ctx.fillRect(0,0,w,h); ctx.restore();
+    ctx.lineJoin='round'; pathLoops(ctx,S.loops[k],sx,sy);
+    ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(3,w/150); ctx.stroke();
+    ctx.strokeStyle='#E0402B'; ctx.lineWidth=Math.max(1.5,w/300); ctx.stroke();
+  }
+  return h;
+}
+function renderGuide(){
+  if (!S.masks.length) return;
+  if (!S.dirtyGuide && $('#guideList').childElementCount) return;
+  S.dirtyGuide=false;
+  $('#guideLead').textContent='同じ絵を'+S.N+'枚用意し、1枚目（台紙・いちばん奥）から順に貼り重ねます。色が見えている部分を赤線で切り抜いて使い、斜線の部分は捨てます。';
+  const list=$('#guideList'); list.innerHTML='';
+  for (let k=1;k<=S.N;k++){
+    const card=document.createElement('article'); card.className='gcard';
+    const h3=document.createElement('h3'); h3.innerHTML='<i style="background:'+colorOf(k)+'"></i>'+k+'枚目　'+(k===1?'台紙（いちばん奥）':layerName(k));
+    const c=document.createElement('canvas'); drawGuide(c,k,560);
+    const ul=document.createElement('ul'); layerLines(k).forEach(t=>{ const li=document.createElement('li'); li.textContent=t; ul.appendChild(li); });
+    card.append(h3,c,ul);
+    if (DL){ const b=document.createElement('button'); b.className='mini'; b.textContent='この層の型紙を保存';
+      b.addEventListener('click',()=>{ const cc=document.createElement('canvas'); drawGuide(cc,k,Math.min(1600,Math.max(800,S.srcW))); save(cc,'shadowbox-layer'+k+'.png'); });
+      card.appendChild(b); }
+    list.appendChild(card);
+  }
+}
+function wrapText(ctx, text, maxW){
+  const out=[]; let line='';
+  for (const ch of text){ if (ctx.measureText(line+ch).width>maxW && line){ out.push(line); line=ch; } else line+=ch; }
+  if (line) out.push(line); return out;
+}
+function buildSheet(){
+  const font='"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif';
+  const cols=2, cw=560, pad=32, gapX=32, imgH=Math.round(cw*S.H/S.W);
+  const tmp=document.createElement('canvas').getContext('2d'); tmp.font='20px '+font;
+  const cells=[]; for (let k=1;k<=S.N;k++){ const lines=[]; layerLines(k).forEach(t=>wrapText(tmp,'・'+t,cw).forEach(l=>lines.push(l))); cells.push({k,lines,h:44+imgH+16+lines.length*30}); }
+  const rows=Math.ceil(S.N/cols), rowH=[];
+  for (let r=0;r<rows;r++) rowH.push(Math.max(...cells.slice(r*cols,r*cols+cols).map(c=>c.h)));
+  const W=pad*2+cols*cw+(cols-1)*gapX, H=120+rowH.reduce((a,b)=>a+b+32,0)+pad;
+  const c=document.createElement('canvas'); c.width=W; c.height=H;
+  const ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#1C2522'; ctx.font='bold 34px '+font; ctx.fillText('シャドーボックス設計図',pad,62);
+  ctx.font='20px '+font; ctx.fillStyle='#56635E'; ctx.fillText('同じ絵が'+S.N+'枚。1枚目（台紙）から順に貼り重ねます。色の見える部分を赤線で切り抜き、斜線部は捨てます。',pad,98);
+  let y=120;
+  for (let r=0;r<rows;r++){
+    for (let ci=0;ci<cols;ci++){
+      const cell=cells[r*cols+ci]; if (!cell) continue;
+      const x=pad+ci*(cw+gapX);
+      ctx.fillStyle=colorOf(cell.k); ctx.beginPath(); ctx.arc(x+9,y+22,9,0,7); ctx.fill();
+      ctx.fillStyle='#1C2522'; ctx.font='bold 24px '+font; ctx.fillText(cell.k+'枚目　'+(cell.k===1?'台紙（いちばん奥）':layerName(cell.k)),x+26,y+31);
+      const g=document.createElement('canvas'); drawGuide(g,cell.k,cw*2);
+      ctx.drawImage(g,x,y+44,cw,imgH); ctx.strokeStyle='#D7DBD2'; ctx.lineWidth=1; ctx.strokeRect(x+.5,y+44.5,cw-1,imgH-1);
+      ctx.fillStyle='#1C2522'; ctx.font='20px '+font;
+      cell.lines.forEach((l,i)=>ctx.fillText(l,x,y+44+imgH+40+i*30));
+    }
+    y+=rowH[r]+32;
+  }
+  return c;
+}
+async function save(canvas, filename){
+  const msg=$('#guideMsg'); msg.hidden=true;
+  if (!DL) return;
+  try{
+    const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+    await DL.save({filename, data:blob});
+  }catch(e){
+    if (e && e.code==='declined') return;
+    msg.textContent = e && e.code==='rate_limited' ? '保存の確認画面がすでに開いています。少し待ってからもう一度押してください。' : 'この画面では保存できませんでした。';
+    msg.hidden=false;
+  }
+}
+$('#saveSheet').addEventListener('click',()=>save(buildSheet(),'shadowbox-guide.png'));
+
+// ---------- 3D プレビュー ----------
+let R=null;
+function ensure3D(){
+  if (R) return true;
+  const box=$('#v3d');
+  if (!window.THREE){ const m=$('#v3dMsg'); m.textContent='3D表示の部品を読み込めませんでした。ページを開き直してください。'; m.hidden=false; return false; }
+  const renderer=new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  box.appendChild(renderer.domElement);
+  const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(35,1,0.01,100);
+  const pivot=new THREE.Group(), group=new THREE.Group(); pivot.add(group); scene.add(pivot);
+  R={renderer,scene,camera,pivot,group,box,yaw:-0.45,pitch:0.18,dist:2.4,layers:[],frame:null,D:0,a:1};
+  const ptrs=new Map(); let pinch0=0, dist0=0;
+  const el=renderer.domElement; el.style.touchAction='none';
+  el.addEventListener('pointerdown',e=>{ el.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY}); box.style.cursor='grabbing';
+    if (ptrs.size===2){ const [a,b]=[...ptrs.values()]; pinch0=Math.hypot(a.x-b.x,a.y-b.y); dist0=R.dist; } });
+  el.addEventListener('pointermove',e=>{
+    const p=ptrs.get(e.pointerId); if (!p) return;
+    if (ptrs.size===1){
+      R.yaw=Math.max(-1.25,Math.min(1.25,R.yaw+(e.clientX-p.x)*0.008));
+      R.pitch=Math.max(-0.9,Math.min(0.9,R.pitch+(e.clientY-p.y)*0.008));
+    }
+    p.x=e.clientX; p.y=e.clientY;
+    if (ptrs.size===2){ const [a,b]=[...ptrs.values()], d=Math.hypot(a.x-b.x,a.y-b.y); if (pinch0) R.dist=clampDist(dist0*pinch0/d); }
+    render3D();
+  });
+  const up=e=>{ ptrs.delete(e.pointerId); if (ptrs.size<2) pinch0=0; if (!ptrs.size) box.style.cursor='grab'; };
+  el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up);
+  el.addEventListener('wheel',e=>{ e.preventDefault(); R.dist=clampDist(R.dist*(1+e.deltaY*0.0012)); render3D(); },{passive:false});
+  new ResizeObserver(()=>resize3D()).observe(box);
+  return true;
+}
+const clampDist=d=>Math.max(R.fit*0.45,Math.min(R.fit*2.2,d));
+function fitDist(){
+  const t=Math.tan(THREE.MathUtils.degToRad(R.camera.fov/2));
+  return (Math.max(1.3/(2*t), (R.a+0.3)*1.1/(2*t*R.camera.aspect)) + R.D*0.6)*1.12;
+}
+function resize3D(){
+  if (!R) return; const w=R.box.clientWidth, h=R.box.clientHeight; if (!w||!h) return;
+  R.renderer.setSize(w,h,false); R.camera.aspect=w/h; R.camera.updateProjectionMatrix();
+  const old=R.fit; R.fit=fitDist(); if (!old) R.dist=R.fit; render3D();
+}
+function render3D(){
+  if (!R) return;
+  R.pivot.rotation.set(R.pitch,R.yaw,0);
+  R.camera.position.set(0,0,R.dist); R.camera.lookAt(0,0,0);
+  R.renderer.render(R.scene,R.camera);
+}
+function disposeObj(o){ o.traverse(c=>{ if (c.geometry) c.geometry.dispose(); if (c.material){ if (c.material.map) c.material.map.dispose(); c.material.dispose(); } }); }
+function layerTexture(k, shadow){
+  const tw=Math.round(Math.min(1024, Math.max(512, S.srcW))), th=Math.round(tw*S.H/S.W);
+  const c=document.createElement('canvas'); c.width=tw; c.height=th;
+  const ctx=c.getContext('2d'), sx=tw/S.W, sy=th/S.H;
+  if (shadow){
+    ctx.save(); ctx.translate(-tw*2,0); pathLoops(ctx,S.loops[k],sx,sy);
+    ctx.shadowColor='rgba(0,0,0,.55)'; ctx.shadowBlur=tw*0.014; ctx.shadowOffsetX=tw*2;
+    ctx.fillStyle='#000'; ctx.fill('evenodd'); ctx.restore();
+  } else if (k===1){
+    ctx.drawImage(S.src,0,0,tw,th);
+  } else {
+    pathLoops(ctx,S.loops[k],sx,sy);
+    ctx.lineJoin='round'; ctx.strokeStyle='#ECEBE4'; ctx.lineWidth=tw*0.004; ctx.stroke();
+    ctx.save(); ctx.clip('evenodd'); ctx.drawImage(S.src,0,0,tw,th); ctx.restore();
+  }
+  const tex=new THREE.CanvasTexture(c); tex.encoding=THREE.sRGBEncoding; tex.anisotropy=4;
+  return tex;
+}
+function buildFrame(){
+  if (R.frame){ R.group.remove(R.frame); disposeObj(R.frame); }
+  const a=R.a, D=R.D, f=new THREE.Group(), B=0.07;
+  const mat=c=>new THREE.MeshBasicMaterial({color:c, side:THREE.DoubleSide});
+  const wall=(w,h,c,rot,pos)=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat(c)); m.rotation.set(rot[0],rot[1],0); m.position.set(...pos); f.add(m); };
+  wall(D,1,'#DCD9D1',[0, Math.PI/2],[-a/2,0,D/2]);
+  wall(D,1,'#E6E3DC',[0,-Math.PI/2],[ a/2,0,D/2]);
+  wall(a,D,'#D2CFC7',[ Math.PI/2,0],[0, 0.5,D/2]);
+  wall(a,D,'#EEECE6',[-Math.PI/2,0],[0,-0.5,D/2]);
+  wall(D,1+2*B,'#28322F',[0, Math.PI/2],[-a/2-B,0,D/2]);
+  wall(D,1+2*B,'#2E3936',[0,-Math.PI/2],[ a/2+B,0,D/2]);
+  wall(a+2*B,D,'#222B28',[ Math.PI/2,0],[0, 0.5+B,D/2]);
+  wall(a+2*B,D,'#33403C',[-Math.PI/2,0],[0,-0.5-B,D/2]);
+  const back=new THREE.Mesh(new THREE.PlaneGeometry(a+2*B,1+2*B),mat('#1F2826')); back.position.z=-0.004; f.add(back);
+  const sh=new THREE.Shape(); sh.moveTo(-a/2-B,-0.5-B); sh.lineTo(a/2+B,-0.5-B); sh.lineTo(a/2+B,0.5+B); sh.lineTo(-a/2-B,0.5+B); sh.lineTo(-a/2-B,-0.5-B);
+  const hole=new THREE.Path(); hole.moveTo(-a/2,-0.5); hole.lineTo(-a/2,0.5); hole.lineTo(a/2,0.5); hole.lineTo(a/2,-0.5); hole.lineTo(-a/2,-0.5); sh.holes.push(hole);
+  const ring=new THREE.Mesh(new THREE.ShapeGeometry(sh),mat('#2B3532')); ring.position.z=D; f.add(ring);
+  R.frame=f; R.group.add(f);
+}
+function placeLayers(){
+  R.D=(S.N-1)*S.gap+0.05;
+  for (const L of R.layers){
+    const z=(L.k-1)*S.gap;
+    L.mesh.position.z=z;
+    if (L.shadow) L.shadow.position.set(0.006,-0.009,z-Math.min(0.004,S.gap*0.3));
+  }
+  R.group.position.z=-R.D/2;
+  buildFrame();
+}
+function build3D(){
+  for (const L of R.layers){ R.group.remove(L.mesh); disposeObj(L.mesh); if (L.shadow){ R.group.remove(L.shadow); disposeObj(L.shadow); } }
+  R.layers=[]; R.a=S.W/S.H;
+  for (let k=1;k<=S.N;k++){
+    if (k>1 && !S.loops[k].length) continue;
+    const geo=new THREE.PlaneGeometry(R.a,1);
+    const mesh=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({map:layerTexture(k,false),transparent:true,alphaTest:0.5,side:THREE.DoubleSide}));
+    mesh.renderOrder=k*2+1; R.group.add(mesh);
+    let shadow=null;
+    if (k>1){
+      shadow=new THREE.Mesh(new THREE.PlaneGeometry(R.a,1),new THREE.MeshBasicMaterial({map:layerTexture(k,true),transparent:true,opacity:0.6,depthWrite:false}));
+      shadow.renderOrder=k*2; R.group.add(shadow);
+    }
+    R.layers.push({k,mesh,shadow});
+  }
+  placeLayers();
+  S.dirty3d=false;
+}
+function show3D(){
+  if (!S.masks.length || !ensure3D()) return;
+  if (S.dirty3d) build3D();
+  resize3D();
+}
+$('#gap').addEventListener('input',e=>{
+  S.gap=(+e.target.value)/1000;
+  const v=+e.target.value; $('#gapOut').textContent = v<20?'せまい':v<40?'ふつう':v<60?'ひろい':'かなりひろい';
+  if (R && R.layers.length){ placeLayers(); render3D(); }
+});
+$('#resetView').addEventListener('click',()=>{ if(!R) return; R.yaw=0; R.pitch=0; R.fit=fitDist(); R.dist=R.fit; render3D(); });
+
+// 動作確認用（URL末尾が #debug の時だけ）
+if (location.hash==='#debug') window.__sb={S, V, grabCutSelect:(...a)=>grabCutSelect(...a)};
+
+// ---------- 保存機能の有無 ----------
+(async()=>{
+  try{ if (window.claude && typeof window.claude.use==='function') DL=await window.claude.use('downloads'); }catch(e){ DL=null; }
+  document.querySelectorAll('.needs-dl').forEach(b=>b.hidden=!DL);
+  if (S.tab==='guide'){ S.dirtyGuide=true; renderGuide(); }
+})();
+})();
+</script>
+</body>
+</html>
